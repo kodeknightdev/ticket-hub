@@ -1,0 +1,12 @@
+**/bin/
+**/obj/
+**/node_modules/
+**/dist/
+**/.angular/
+**/__pycache__/
+**/.venv/
+**/.pytest_cache/
+.git/
+.env
+infra/
+deploy/helm/
