@@ -1,0 +1,13 @@
+{
+  "profiles": {
+    "identity": {
+      "commandName": "Project",
+      "launchBrowser": false,
+      "applicationUrl": "http://localhost:5201",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "SEED_DEMO_PASSWORD": "Demo@12345"
+      }
+    }
+  }
+}
