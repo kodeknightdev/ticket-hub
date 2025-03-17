@@ -15,6 +15,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TicketHub.Identity", "src\s
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TicketHub.Events", "src\services\events\TicketHub.Events\TicketHub.Events.csproj", "{7B56A9BE-CB19-4CF0-AE24-B1CDA228E398}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TicketHub.Seating", "src\services\seating\TicketHub.Seating\TicketHub.Seating.csproj", "{3210EC68-13D3-4D3F-AC68-BF16FC27EA8A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -73,6 +75,18 @@ Global
 		{7B56A9BE-CB19-4CF0-AE24-B1CDA228E398}.Release|x64.Build.0 = Release|Any CPU
 		{7B56A9BE-CB19-4CF0-AE24-B1CDA228E398}.Release|x86.ActiveCfg = Release|Any CPU
 		{7B56A9BE-CB19-4CF0-AE24-B1CDA228E398}.Release|x86.Build.0 = Release|Any CPU
+		{3210EC68-13D3-4D3F-AC68-BF16FC27EA8A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3210EC68-13D3-4D3F-AC68-BF16FC27EA8A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3210EC68-13D3-4D3F-AC68-BF16FC27EA8A}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{3210EC68-13D3-4D3F-AC68-BF16FC27EA8A}.Debug|x64.Build.0 = Debug|Any CPU
+		{3210EC68-13D3-4D3F-AC68-BF16FC27EA8A}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{3210EC68-13D3-4D3F-AC68-BF16FC27EA8A}.Debug|x86.Build.0 = Debug|Any CPU
+		{3210EC68-13D3-4D3F-AC68-BF16FC27EA8A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3210EC68-13D3-4D3F-AC68-BF16FC27EA8A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3210EC68-13D3-4D3F-AC68-BF16FC27EA8A}.Release|x64.ActiveCfg = Release|Any CPU
+		{3210EC68-13D3-4D3F-AC68-BF16FC27EA8A}.Release|x64.Build.0 = Release|Any CPU
+		{3210EC68-13D3-4D3F-AC68-BF16FC27EA8A}.Release|x86.ActiveCfg = Release|Any CPU
+		{3210EC68-13D3-4D3F-AC68-BF16FC27EA8A}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -82,5 +96,6 @@ Global
 		{EE4AAFEA-D0FF-4AB1-8270-987AB9984BB1} = {4F52FD11-658E-A102-6CD3-7D7C16FFA15B}
 		{CE1A02BE-96B0-45B6-A2C2-192BB8433363} = {5854FF58-B8C5-05C6-5BF2-ACE42193F22B}
 		{7B56A9BE-CB19-4CF0-AE24-B1CDA228E398} = {5854FF58-B8C5-05C6-5BF2-ACE42193F22B}
+		{3210EC68-13D3-4D3F-AC68-BF16FC27EA8A} = {5854FF58-B8C5-05C6-5BF2-ACE42193F22B}
 	EndGlobalSection
 EndGlobal
