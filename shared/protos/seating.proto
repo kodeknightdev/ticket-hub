@@ -1,0 +1,88 @@
+syntax = "proto3";
+
+option csharp_namespace = "TicketHub.Protos.Seating";
+
+package tickethub.seating.v1;
+
+service SeatingRpc {
+  rpc GetAvailability (AvailabilityRequest) returns (AvailabilityReply);
+  rpc GetHold (HoldRequest) returns (HoldReply);
+  rpc ConfirmHold (ConfirmHoldRequest) returns (ConfirmHoldReply);
+  rpc ReleaseHold (ReleaseHoldRequest) returns (ReleaseHoldReply);
+  rpc GetSoldCounts (SoldCountsRequest) returns (SoldCountsReply);
+}
+
+message AvailabilityRequest {
+  string event_id = 1;
+  bool include_seats = 2;
+}
+
+message SeatState {
+  string seat_id = 1;
+  // available | held | sold
+  string state = 2;
+}
+
+message AvailabilityReply {
+  string event_id = 1;
+  int32 capacity = 2;
+  int32 available = 3;
+  int32 held = 4;
+  int32 sold = 5;
+  repeated SeatState seats = 6;
+}
+
+message HoldRequest {
+  string hold_id = 1;
+}
+
+message HeldSeat {
+  string seat_id = 1;
+  string tier_id = 2;
+  string section_id = 3;
+  string label = 4;
+}
+
+message HoldReply {
+  bool found = 1;
+  string hold_id = 2;
+  string event_id = 3;
+  string buyer_id = 4;
+  repeated HeldSeat seats = 5;
+  int64 held_at_unix_ms = 6;
+  int64 expires_at_unix_ms = 7;
+  bool confirmed = 8;
+}
+
+message ConfirmHoldRequest {
+  string hold_id = 1;
+  string order_id = 2;
+}
+
+message ConfirmHoldReply {
+  bool confirmed = 1;
+  string reason = 2;
+}
+
+message ReleaseHoldRequest {
+  string hold_id = 1;
+  string reason = 2;
+}
+
+message ReleaseHoldReply {
+  bool released = 1;
+}
+
+message SoldCountsRequest {
+  repeated string event_ids = 1;
+}
+
+message SoldCount {
+  string event_id = 1;
+  int32 sold = 2;
+  int32 held = 3;
+}
+
+message SoldCountsReply {
+  repeated SoldCount counts = 1;
+}
