@@ -1,0 +1,24 @@
+<EmailLayout Heading="@(EventCancelled ? "Event cancelled" : "Your refund is on its way")">
+    @if (EventCancelled)
+    {
+        <p>We're sorry: <strong>@EventTitle</strong> has been cancelled by the organiser.</p>
+        <p>Your tickets have been voided and a full refund of <strong>@Amount.ToString("0.00") @Currency</strong> has been issued to your original payment method.</p>
+    }
+    else if (LatePayment)
+    {
+        <p>Your payment for <strong>@EventTitle</strong> came through after your seat hold had expired, so the seats were released.</p>
+        <p>We've refunded <strong>@Amount.ToString("0.00") @Currency</strong> in full. You can try again from the event page.</p>
+    }
+    else
+    {
+        <p>Your order for <strong>@EventTitle</strong> has been refunded: <strong>@Amount.ToString("0.00") @Currency</strong>.</p>
+    }
+</EmailLayout>
+
+@code {
+    [Parameter] public string EventTitle { get; set; } = "";
+    [Parameter] public decimal Amount { get; set; }
+    [Parameter] public string Currency { get; set; } = "GBP";
+    [Parameter] public bool EventCancelled { get; set; }
+    [Parameter] public bool LatePayment { get; set; }
+}

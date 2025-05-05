@@ -19,6 +19,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TicketHub.Seating", "src\se
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TicketHub.Orders", "src\services\orders\TicketHub.Orders\TicketHub.Orders.csproj", "{4BEE3827-EEA3-4EB2-AB54-413A74C0DA93}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TicketHub.Notifier", "src\services\notifier\TicketHub.Notifier\TicketHub.Notifier.csproj", "{625C3740-405C-4A85-AC61-AD4DB18E7FE2}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -101,6 +103,18 @@ Global
 		{4BEE3827-EEA3-4EB2-AB54-413A74C0DA93}.Release|x64.Build.0 = Release|Any CPU
 		{4BEE3827-EEA3-4EB2-AB54-413A74C0DA93}.Release|x86.ActiveCfg = Release|Any CPU
 		{4BEE3827-EEA3-4EB2-AB54-413A74C0DA93}.Release|x86.Build.0 = Release|Any CPU
+		{625C3740-405C-4A85-AC61-AD4DB18E7FE2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{625C3740-405C-4A85-AC61-AD4DB18E7FE2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{625C3740-405C-4A85-AC61-AD4DB18E7FE2}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{625C3740-405C-4A85-AC61-AD4DB18E7FE2}.Debug|x64.Build.0 = Debug|Any CPU
+		{625C3740-405C-4A85-AC61-AD4DB18E7FE2}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{625C3740-405C-4A85-AC61-AD4DB18E7FE2}.Debug|x86.Build.0 = Debug|Any CPU
+		{625C3740-405C-4A85-AC61-AD4DB18E7FE2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{625C3740-405C-4A85-AC61-AD4DB18E7FE2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{625C3740-405C-4A85-AC61-AD4DB18E7FE2}.Release|x64.ActiveCfg = Release|Any CPU
+		{625C3740-405C-4A85-AC61-AD4DB18E7FE2}.Release|x64.Build.0 = Release|Any CPU
+		{625C3740-405C-4A85-AC61-AD4DB18E7FE2}.Release|x86.ActiveCfg = Release|Any CPU
+		{625C3740-405C-4A85-AC61-AD4DB18E7FE2}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -112,5 +126,6 @@ Global
 		{7B56A9BE-CB19-4CF0-AE24-B1CDA228E398} = {5854FF58-B8C5-05C6-5BF2-ACE42193F22B}
 		{3210EC68-13D3-4D3F-AC68-BF16FC27EA8A} = {5854FF58-B8C5-05C6-5BF2-ACE42193F22B}
 		{4BEE3827-EEA3-4EB2-AB54-413A74C0DA93} = {5854FF58-B8C5-05C6-5BF2-ACE42193F22B}
+		{625C3740-405C-4A85-AC61-AD4DB18E7FE2} = {5854FF58-B8C5-05C6-5BF2-ACE42193F22B}
 	EndGlobalSection
 EndGlobal

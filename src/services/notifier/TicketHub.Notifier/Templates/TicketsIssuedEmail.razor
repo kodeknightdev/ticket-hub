@@ -1,0 +1,20 @@
+<EmailLayout Heading="Your tickets are ready">
+    <p>Thanks for your order. Here are your tickets for <strong>@EventTitle</strong>@(When is null ? "" : $" on {When:ddd d MMM yyyy, HH:mm}").</p>
+    @foreach (var ticket in Tickets)
+    {
+        <div style="border:1px solid #ddd; border-radius:6px; padding:12px; margin:12px 0; text-align:center;">
+            <div style="font-weight:bold; margin-bottom:8px;">@ticket.Label</div>
+            <img src="cid:@ticket.ContentId" alt="QR code for @ticket.Label" width="180" height="180" />
+            <div style="font-family:monospace; font-size:11px; color:#666; word-break:break-all;">@ticket.Code</div>
+        </div>
+    }
+    <p>Show the QR code at the door. Each code can only be scanned once.</p>
+</EmailLayout>
+
+@code {
+    public sealed record TicketView(string Label, string Code, string ContentId);
+
+    [Parameter] public string EventTitle { get; set; } = "";
+    [Parameter] public DateTimeOffset? When { get; set; }
+    [Parameter] public IReadOnlyList<TicketView> Tickets { get; set; } = [];
+}

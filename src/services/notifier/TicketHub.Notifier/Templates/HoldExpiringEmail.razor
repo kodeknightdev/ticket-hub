@@ -1,0 +1,9 @@
+<EmailLayout Heading="Your seats are about to be released">
+    <p>You are holding seats for <strong>@EventTitle</strong>. The hold ends at <strong>@ExpiresAt.ToString("HH:mm") UTC</strong>.</p>
+    <p>Finish checkout before then, or the seats go back on sale.</p>
+</EmailLayout>
+
+@code {
+    [Parameter] public string EventTitle { get; set; } = "";
+    [Parameter] public DateTimeOffset ExpiresAt { get; set; }
+}
