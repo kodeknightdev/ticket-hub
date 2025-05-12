@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>TicketHub.BffKit</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="StackExchange.Redis" />
+    <PackageReference Include="Microsoft.AspNetCore.DataProtection.StackExchangeRedis" />
+    <PackageReference Include="Microsoft.Extensions.Http.Resilience" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\TicketHub.BuildingBlocks\TicketHub.BuildingBlocks.csproj" />
+  </ItemGroup>
+</Project>
