@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
+    <PackageReference Include="Testcontainers.MsSql" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\services\orders\TicketHub.Orders\TicketHub.Orders.csproj" />
+    <ProjectReference Include="..\TicketHub.TestSupport\TicketHub.TestSupport.csproj" />
+  </ItemGroup>
+</Project>
