@@ -202,7 +202,8 @@ public sealed class OrderService(
         foreach (var line in order.Lines)
         {
             var ticketId = Guid.NewGuid();
-            order.Tickets.Add(new Ticket
+            // Added explicitly: a client-generated key on a navigation add would be treated as an update.
+            var ticket = new Ticket
             {
                 Id = ticketId,
                 OrderId = order.Id,
@@ -213,7 +214,9 @@ public sealed class OrderService(
                 Code = signer.CreateCode(ticketId, order.EventId),
                 Status = TicketStatus.Valid,
                 IssuedAt = now
-            });
+            };
+            db.Tickets.Add(ticket);
+            order.Tickets.Add(ticket);
         }
         order.Status = OrderStatus.TicketsIssued;
 
