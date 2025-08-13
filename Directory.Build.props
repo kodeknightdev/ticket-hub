@@ -4,7 +4,8 @@
     <LangVersion>13.0</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- SqlClient refuses to open connections in invariant mode -->
+    <InvariantGlobalization>false</InvariantGlobalization>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <Authors>Owen Shaw</Authors>
     <Company>ticket-hub</Company>
