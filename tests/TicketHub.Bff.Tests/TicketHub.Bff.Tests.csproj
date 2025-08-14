@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\bff\TicketHub.TicketingBff\TicketHub.TicketingBff.csproj" />
+    <ProjectReference Include="..\..\src\bff\TicketHub.DashboardBff\TicketHub.DashboardBff.csproj" />
+    <ProjectReference Include="..\TicketHub.TestSupport\TicketHub.TestSupport.csproj" />
+  </ItemGroup>
+</Project>
