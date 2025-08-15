@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\services\notifier\TicketHub.Notifier\TicketHub.Notifier.csproj" />
+    <ProjectReference Include="..\TicketHub.TestSupport\TicketHub.TestSupport.csproj" />
+  </ItemGroup>
+</Project>
