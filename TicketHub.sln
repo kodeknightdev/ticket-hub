@@ -45,6 +45,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TicketHub.Bff.Tests", "test
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TicketHub.Notifier.Tests", "tests\TicketHub.Notifier.Tests\TicketHub.Notifier.Tests.csproj", "{AE8AF874-AA4B-4300-B60B-405333486252}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{07C2787E-EAC7-C090-1BA3-A61EC2A24D84}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TicketHub.LoadSim", "tools\load-sim\TicketHub.LoadSim\TicketHub.LoadSim.csproj", "{5524A562-BB35-43F6-89DC-2677C4595386}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -259,6 +263,18 @@ Global
 		{AE8AF874-AA4B-4300-B60B-405333486252}.Release|x64.Build.0 = Release|Any CPU
 		{AE8AF874-AA4B-4300-B60B-405333486252}.Release|x86.ActiveCfg = Release|Any CPU
 		{AE8AF874-AA4B-4300-B60B-405333486252}.Release|x86.Build.0 = Release|Any CPU
+		{5524A562-BB35-43F6-89DC-2677C4595386}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5524A562-BB35-43F6-89DC-2677C4595386}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5524A562-BB35-43F6-89DC-2677C4595386}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{5524A562-BB35-43F6-89DC-2677C4595386}.Debug|x64.Build.0 = Debug|Any CPU
+		{5524A562-BB35-43F6-89DC-2677C4595386}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{5524A562-BB35-43F6-89DC-2677C4595386}.Debug|x86.Build.0 = Debug|Any CPU
+		{5524A562-BB35-43F6-89DC-2677C4595386}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5524A562-BB35-43F6-89DC-2677C4595386}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5524A562-BB35-43F6-89DC-2677C4595386}.Release|x64.ActiveCfg = Release|Any CPU
+		{5524A562-BB35-43F6-89DC-2677C4595386}.Release|x64.Build.0 = Release|Any CPU
+		{5524A562-BB35-43F6-89DC-2677C4595386}.Release|x86.ActiveCfg = Release|Any CPU
+		{5524A562-BB35-43F6-89DC-2677C4595386}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -281,5 +297,6 @@ Global
 		{93A1E04D-8AC8-44E0-83BA-D89C4A10BC78} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{83813712-52A4-43B8-918B-E8B3DC173856} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{AE8AF874-AA4B-4300-B60B-405333486252} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+		{5524A562-BB35-43F6-89DC-2677C4595386} = {07C2787E-EAC7-C090-1BA3-A61EC2A24D84}
 	EndGlobalSection
 EndGlobal
