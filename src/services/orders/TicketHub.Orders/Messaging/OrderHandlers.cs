@@ -18,14 +18,14 @@ public sealed class SeatsSoldHandler(OrdersDbContext db, OrderService orders) : 
 
         var sold = envelope.As<SeatsSold>();
         var order = await db.Orders.Include(o => o.Lines).Include(o => o.Tickets).FirstOrDefaultAsync(o => o.Id == sold.OrderId, ct);
-        if (order is not null) await orders.IssueTicketsAsync(order, ct);
+        if (order is not null) orders.IssueTickets(order);
 
         db.MarkProcessed(envelope.Id, Consumer);
         await db.SaveChangesAsync(ct);
     }
 }
 
-public sealed class HoldExpiredHandler(OrdersDbContext db, OrderService orders) : IIntegrationEventHandler
+public sealed class HoldExpiredHandler(OrdersDbContext db) : IIntegrationEventHandler
 {
     private const string Consumer = "orders.hold-expired";
 

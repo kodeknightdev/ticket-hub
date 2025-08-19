@@ -50,7 +50,7 @@ public static class DashboardEndpoints
                 if ((by ?? "event") == "event")
                 {
                     var keys = rows.Select(r => r!["key"]!.GetValue<string>()).ToList();
-                    var summaries = await fanout.Optional("events", () => events.SummariesAsync(keys, ct)) ?? [];
+                    var summaries = await fanout.Optional("events", async () => (IReadOnlyList<EventSummaryDto>?)await events.SummariesAsync(keys, ct)) ?? [];
                     var byId = summaries.ToDictionary(s => s.Id.ToString());
                     foreach (var row in rows)
                     {
@@ -140,7 +140,7 @@ public static class DashboardEndpoints
         var upcoming = rows.Where(r => r!["daysToEvent"]!.GetValue<int>() >= 0).Select(r => r!["eventId"]!.GetValue<string>()).ToList();
 
         var fanout = new Fanout();
-        var live = upcoming.Count == 0 ? null : await fanout.Optional("seating", () => seating.SoldCountsAsync(upcoming, ct));
+        var live = upcoming.Count == 0 ? null : await fanout.Optional("seating", async () => (IReadOnlyDictionary<string, int>?)await seating.SoldCountsAsync(upcoming, ct));
         foreach (var row in rows)
         {
             if (row is null) continue;

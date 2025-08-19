@@ -194,7 +194,7 @@ public sealed class OrderService(
         return true;
     }
 
-    public async Task IssueTicketsAsync(Order order, CancellationToken ct = default)
+    public void IssueTickets(Order order)
     {
         if (order.Status != OrderStatus.Paid) return;
         var now = clock.GetUtcNow();

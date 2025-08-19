@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging;
 namespace TicketHub.BffKit;
 
 /// <summary>Hands out a valid access token for the current session, refreshing it silently when close to expiry.</summary>
-public sealed class TokenAccessor(ITokenStore store, IdentityClient identity, BffOptions options, TimeProvider clock, ILogger<TokenAccessor> logger)
+public sealed class TokenAccessor(ITokenStore store, IdentityClient identity, TimeProvider clock, ILogger<TokenAccessor> logger)
 {
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> RefreshLocks = new();
     private static readonly TimeSpan RefreshWindow = TimeSpan.FromSeconds(60);

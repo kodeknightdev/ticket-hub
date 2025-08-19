@@ -130,7 +130,7 @@ public class OrderFlowTests : IDisposable
         await using (var db = _h.Db.Create())
         {
             var paid = await db.Orders.Include(o => o.Lines).Include(o => o.Tickets).SingleAsync();
-            await _h.Service(db).IssueTicketsAsync(paid);
+            _h.Service(db).IssueTickets(paid);
             await db.SaveChangesAsync();
         }
 
@@ -150,7 +150,7 @@ public class OrderFlowTests : IDisposable
         await using (var db = _h.Db.Create())
         {
             var paid = await db.Orders.Include(o => o.Lines).Include(o => o.Tickets).SingleAsync();
-            await _h.Service(db).IssueTicketsAsync(paid);
+            _h.Service(db).IssueTickets(paid);
             await db.SaveChangesAsync();
         }
 
