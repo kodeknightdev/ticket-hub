@@ -1,0 +1,29 @@
+
+server {
+    listen 8080;
+    server_name _;
+    root /usr/share/nginx/html;
+
+    location /bff/ {
+        proxy_pass ${BFF_UPSTREAM};
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /api/ {
+        proxy_pass ${BFF_UPSTREAM};
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    location ~* \.(js|css|woff2?|png|svg)$ {
+        expires 7d;
+        add_header Cache-Control "public, immutable";
+    }
+}
