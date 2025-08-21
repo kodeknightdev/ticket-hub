@@ -1,0 +1,16 @@
+# Local conveniences: publish every service port so the OpenAPI/Scalar pages and gRPC are reachable from the host.
+services:
+  identity:
+    ports: ["5201:8080"]
+  events:
+    ports: ["5202:8080"]
+  seating:
+    ports: ["5203:8080", "5213:8081"]
+  orders:
+    ports: ["5204:8080"]
+  notifier:
+    ports: ["5205:8080"]
+  pricing:
+    ports: ["8001:8000"]
+  analytics:
+    ports: ["8002:8000"]

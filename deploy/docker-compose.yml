@@ -1,0 +1,310 @@
+name: ticket-hub
+
+x-dotnet: &dotnet
+  restart: unless-stopped
+  env_file: ../.env
+  depends_on: &infra
+    db-init:
+      condition: service_completed_successfully
+    kafka-init:
+      condition: service_completed_successfully
+    redis:
+      condition: service_healthy
+
+x-dotnet-env: &dotnet-env
+  ASPNETCORE_ENVIRONMENT: Development
+  Kafka__BootstrapServers: kafka:9092
+  Jwt__SigningKey: ${JWT_SIGNING_KEY}
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
+
+x-python-env: &python-env
+  KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+  AUTO_MIGRATE: "true"
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
+
+services:
+  # ---- infrastructure ----
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-CU17-ubuntu-22.04
+    platform: linux/amd64
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD}
+      MSSQL_PID: Developer
+    ports: ["1433:1433"]
+    volumes: [sqldata:/var/opt/mssql]
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -Q 'SELECT 1' -b -o /dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  db-init:
+    image: mcr.microsoft.com/mssql/server:2022-CU17-ubuntu-22.04
+    platform: linux/amd64
+    env_file: ../.env
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    volumes: [./sql/init.sql:/init/init.sql:ro]
+    entrypoint:
+      - /bin/bash
+      - -c
+      - >-
+        /opt/mssql-tools18/bin/sqlcmd -C -S sqlserver -U sa -P "$$MSSQL_SA_PASSWORD" -b -i /init/init.sql
+        -v IDENTITY_DB_PASSWORD="$$IDENTITY_DB_PASSWORD" EVENTS_DB_PASSWORD="$$EVENTS_DB_PASSWORD"
+        SEATING_DB_PASSWORD="$$SEATING_DB_PASSWORD" ORDERS_DB_PASSWORD="$$ORDERS_DB_PASSWORD"
+        NOTIFIER_DB_PASSWORD="$$NOTIFIER_DB_PASSWORD" PRICING_DB_PASSWORD="$$PRICING_DB_PASSWORD"
+        ANALYTICS_DB_PASSWORD="$$ANALYTICS_DB_PASSWORD"
+    restart: "no"
+
+  kafka:
+    image: apache/kafka:3.9.0
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_NUM_PARTITIONS: 6
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    ports: ["29092:29092"]
+    volumes: [kafkadata:/var/lib/kafka/data]
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 15
+      start_period: 20s
+
+  kafka-init:
+    image: apache/kafka:3.9.0
+    depends_on:
+      kafka:
+        condition: service_healthy
+    volumes: [./kafka/create-topics.sh:/create-topics.sh:ro]
+    entrypoint: ["/bin/bash", "/create-topics.sh"]
+    environment:
+      BOOTSTRAP: kafka:9092
+    restart: "no"
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:v0.7.2
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      KAFKA_CLUSTERS_0_NAME: ticket-hub
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+    ports: ["8085:8080"]
+
+  redis:
+    image: redis:7.4.2-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports: ["6379:6379"]
+    volumes: [redisdata:/data]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    ports: ["8025:8025", "1025:1025"]
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.66.0
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports: ["16686:16686", "4317:4317"]
+
+  # ---- .NET services ----
+  identity:
+    <<: *dotnet
+    build: { context: .., dockerfile: src/services/identity/TicketHub.Identity/Dockerfile }
+    image: tickethub/identity:local
+    environment:
+      <<: *dotnet-env
+      ConnectionStrings__Default: Server=sqlserver,1433;Database=TicketHub_Identity;User Id=identity_svc;Password=${IDENTITY_DB_PASSWORD};TrustServerCertificate=True
+
+  events:
+    <<: *dotnet
+    build: { context: .., dockerfile: src/services/events/TicketHub.Events/Dockerfile }
+    image: tickethub/events:local
+    environment:
+      <<: *dotnet-env
+      ConnectionStrings__Default: Server=sqlserver,1433;Database=TicketHub_Events;User Id=events_svc;Password=${EVENTS_DB_PASSWORD};TrustServerCertificate=True
+
+  seating:
+    <<: *dotnet
+    build: { context: .., dockerfile: src/services/seating/TicketHub.Seating/Dockerfile }
+    image: tickethub/seating:local
+    environment:
+      <<: *dotnet-env
+      ASPNETCORE_HTTP_PORTS: ""
+      Kestrel__Endpoints__Http__Url: http://+:8080
+      Kestrel__Endpoints__Grpc__Url: http://+:8081
+      ConnectionStrings__Default: Server=sqlserver,1433;Database=TicketHub_Seating;User Id=seating_svc;Password=${SEATING_DB_PASSWORD};TrustServerCertificate=True
+      ConnectionStrings__Redis: redis:6379
+      Services__Events: http://events:8080
+
+  orders:
+    <<: *dotnet
+    build: { context: .., dockerfile: src/services/orders/TicketHub.Orders/Dockerfile }
+    image: tickethub/orders:local
+    environment:
+      <<: *dotnet-env
+      ConnectionStrings__Default: Server=sqlserver,1433;Database=TicketHub_Orders;User Id=orders_svc;Password=${ORDERS_DB_PASSWORD};TrustServerCertificate=True
+      Services__SeatingGrpc: http://seating:8081
+      Services__Pricing: http://pricing:8000
+      Stripe__SecretKey: ${STRIPE_SECRET_KEY}
+      Stripe__PublishableKey: ${STRIPE_PUBLISHABLE_KEY}
+      Stripe__WebhookSecret: ${STRIPE_WEBHOOK_SECRET}
+      MockPayments__WebhookSecret: ${MOCK_WEBHOOK_SECRET}
+      Tickets__SigningKey: ${TICKET_SIGNING_KEY}
+
+  notifier:
+    <<: *dotnet
+    build: { context: .., dockerfile: src/services/notifier/TicketHub.Notifier/Dockerfile }
+    image: tickethub/notifier:local
+    environment:
+      <<: *dotnet-env
+      ConnectionStrings__Default: Server=sqlserver,1433;Database=TicketHub_Notifier;User Id=notifier_svc;Password=${NOTIFIER_DB_PASSWORD};TrustServerCertificate=True
+      Smtp__Host: mailhog
+      Smtp__Port: "1025"
+
+  # ---- Python services ----
+  pricing:
+    build: { context: ../src/services/pricing }
+    image: tickethub/pricing:local
+    restart: unless-stopped
+    depends_on: *infra
+    environment:
+      <<: *python-env
+      DATABASE_URL: mssql+pyodbc://pricing_svc:${PRICING_DB_PASSWORD}@sqlserver:1433/TicketHub_Pricing?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes
+      KAFKA_GROUP_ID: pricing
+      SERVICE_NAME: pricing
+
+  analytics:
+    build: { context: ../src/services/analytics }
+    image: tickethub/analytics:local
+    restart: unless-stopped
+    depends_on: *infra
+    environment:
+      <<: *python-env
+      DATABASE_URL: mssql+pyodbc://analytics_svc:${ANALYTICS_DB_PASSWORD}@sqlserver:1433/TicketHub_Analytics?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes
+      KAFKA_GROUP_ID: analytics
+      SERVICE_NAME: analytics
+
+  # ---- BFFs and frontends ----
+  ticketing-bff:
+    build: { context: .., dockerfile: src/bff/TicketHub.TicketingBff/Dockerfile }
+    image: tickethub/ticketing-bff:local
+    restart: unless-stopped
+    env_file: ../.env
+    depends_on:
+      redis:
+        condition: service_healthy
+      identity:
+        condition: service_started
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
+      ConnectionStrings__Redis: redis:6379
+      Bff__IdentityUrl: http://identity:8080
+      Bff__FrontendOrigin: http://localhost:3000
+      Services__Events: http://events:8080
+      Services__Orders: http://orders:8080
+      Services__Pricing: http://pricing:8000
+      Services__SeatingGrpc: http://seating:8081
+      ReverseProxy__Clusters__events__Destinations__primary__Address: http://events:8080
+      ReverseProxy__Clusters__seating__Destinations__primary__Address: http://seating:8080
+      ReverseProxy__Clusters__orders__Destinations__primary__Address: http://orders:8080
+      ReverseProxy__Clusters__pricing__Destinations__primary__Address: http://pricing:8000
+    ports: ["${TICKETING_BFF_PORT:-5000}:8080"]
+
+  dashboard-bff:
+    build: { context: .., dockerfile: src/bff/TicketHub.DashboardBff/Dockerfile }
+    image: tickethub/dashboard-bff:local
+    restart: unless-stopped
+    env_file: ../.env
+    depends_on:
+      redis:
+        condition: service_healthy
+      identity:
+        condition: service_started
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
+      ConnectionStrings__Redis: redis:6379
+      Bff__IdentityUrl: http://identity:8080
+      Bff__FrontendOrigin: http://localhost:3100
+      Services__Analytics: http://analytics:8000
+      Services__Events: http://events:8080
+      Services__Orders: http://orders:8080
+      Services__Pricing: http://pricing:8000
+      Services__SeatingGrpc: http://seating:8081
+      ReverseProxy__Clusters__events__Destinations__primary__Address: http://events:8080
+    ports: ["5100:8080"]
+
+  ticketing-frontend:
+    build: { context: ../ticketing-frontend }
+    image: tickethub/ticketing-frontend:local
+    restart: unless-stopped
+    depends_on: [ticketing-bff]
+    environment:
+      BFF_UPSTREAM: http://ticketing-bff:8080
+    ports: ["3000:8080"]
+
+  dashboard-frontend:
+    build: { context: ../dashboard-frontend }
+    image: tickethub/dashboard-frontend:local
+    restart: unless-stopped
+    depends_on: [dashboard-bff]
+    environment:
+      BFF_UPSTREAM: http://dashboard-bff:8080
+    ports: ["3100:8080"]
+
+  # ---- optional one-shots and tools ----
+  seed-history:
+    profiles: [seed]
+    build: { context: .., dockerfile: tools/seed-history/Dockerfile }
+    image: tickethub/seed-history:local
+    depends_on:
+      analytics:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: mssql+pyodbc://analytics_svc:${ANALYTICS_DB_PASSWORD}@sqlserver:1433/TicketHub_Analytics?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes
+    restart: "no"
+
+  load-sim:
+    profiles: [loadsim]
+    build: { context: .., dockerfile: tools/load-sim/Dockerfile }
+    image: tickethub/load-sim:local
+    environment:
+      LOADSIM_IDENTITY: http://identity:8080
+      LOADSIM_EVENTS: http://events:8080
+      LOADSIM_SEATING: http://seating:8080
+      LOADSIM_ORDERS: http://orders:8080
+    restart: "no"
+
+  stripe-cli:
+    profiles: [stripe]
+    image: stripe/stripe-cli:v1.25.0
+    command: ["listen", "--forward-to", "http://orders:8080/webhooks/stripe", "--events", "payment_intent.succeeded,payment_intent.payment_failed"]
+    environment:
+      STRIPE_API_KEY: ${STRIPE_SECRET_KEY}
+
+volumes:
+  sqldata:
+  kafkadata:
+  redisdata:

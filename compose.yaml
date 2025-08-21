@@ -1,0 +1,6 @@
+# Lets `docker compose up --build` work from the repository root; the real definitions live in deploy/.
+include:
+  - path:
+      - deploy/docker-compose.yml
+      - deploy/docker-compose.override.yml
+    env_file: .env
