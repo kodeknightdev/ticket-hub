@@ -8,7 +8,11 @@ public sealed class StripeOptions
     public string? PublishableKey { get; set; }
     public string? WebhookSecret { get; set; }
 
-    public bool IsConfigured => !string.IsNullOrWhiteSpace(SecretKey) && SecretKey.StartsWith("sk_test_", StringComparison.Ordinal);
+    // Test-mode keys only, and the .env.example placeholder doesn't count as configured.
+    public bool IsConfigured =>
+        !string.IsNullOrWhiteSpace(SecretKey)
+        && SecretKey.StartsWith("sk_test_", StringComparison.Ordinal)
+        && !SecretKey.Contains("replace_me", StringComparison.Ordinal);
 }
 
 public sealed class MockPaymentOptions
