@@ -182,4 +182,17 @@ public sealed class TicketingBffTests : IDisposable
         _factory.Stubs[OrdersApi.Name].Requests.Last().Headers.Authorization!.Parameter.ShouldBe(IdentityStub.AccessTokenMarker);
     }
 
+    [Fact]
+    public async Task Session_endpoints_work_behind_a_plain_http_proxy()
+    {
+        // nginx in compose and TLS-terminating ingresses talk plain http to the BFF
+        var client = _factory.CreateClient(new() { BaseAddress = new Uri("http://localhost"), HandleCookies = false });
+        (await client.GetAsync("/bff/user")).StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var request = new HttpRequestMessage(HttpMethod.Get, "/bff/user");
+        request.Headers.Add("X-Forwarded-Proto", "https");
+        var response = await client.SendAsync(request);
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        response.Headers.GetValues("Set-Cookie").ShouldContain(c => c.StartsWith("app-af=", StringComparison.Ordinal) && c.Contains("secure", StringComparison.OrdinalIgnoreCase));
+    }
 }

@@ -63,6 +63,7 @@ builder.Services.AddReverseProxy()
 
 var app = builder.Build();
 
+app.UseForwardedHeaders();
 app.UseExceptionHandler();
 app.UseCors("frontend");
 app.UseAuthentication();

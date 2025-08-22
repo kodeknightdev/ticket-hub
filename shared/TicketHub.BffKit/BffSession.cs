@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -74,11 +75,20 @@ public static class BffSession
                 };
             });
 
+        // Antiforgery refuses to run on plain http with a Secure-only cookie, and the BFF always sits
+        // behind a proxy (nginx locally, a TLS-terminating ingress in Kubernetes). Trust X-Forwarded-Proto
+        // and let the antiforgery cookie follow the request scheme.
+        services.Configure<ForwardedHeadersOptions>(o =>
+        {
+            o.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+            o.KnownNetworks.Clear();
+            o.KnownProxies.Clear();
+        });
         services.AddAntiforgery(o =>
         {
             o.HeaderName = "X-XSRF-TOKEN";
-            o.Cookie.Name = $"__Host-{options.AppName}-af";
-            o.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+            o.Cookie.Name = $"{options.AppName}-af";
+            o.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
             o.Cookie.SameSite = SameSiteMode.Strict;
         });
 
