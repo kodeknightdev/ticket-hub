@@ -21,7 +21,8 @@ public sealed class OrdersSqlServerTests : IAsyncLifetime
         if (new DockerFactAttribute().Skip is not null) return;
         _sql = new MsSqlBuilder().WithImage("mcr.microsoft.com/mssql/server:2022-CU17-ubuntu-22.04").Build();
         await _sql.StartAsync();
-        _options = new DbContextOptionsBuilder<OrdersDbContext>().UseSqlServer(_sql.GetConnectionString()).Options;
+        // same retry strategy as the service, so transactions are exercised the way production runs them
+        _options = new DbContextOptionsBuilder<OrdersDbContext>().UseSqlServer(_sql.GetConnectionString(), s => s.EnableRetryOnFailure()).Options;
         await using var db = new OrdersDbContext(_options);
         await db.Database.MigrateAsync();
     }

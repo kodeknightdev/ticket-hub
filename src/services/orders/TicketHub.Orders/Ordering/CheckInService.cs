@@ -30,28 +30,41 @@ public sealed class CheckInService(OrdersDbContext db, TicketSigner signer, Time
         if (ticket.Status == TicketStatus.Void) return new CheckInResult(CheckInOutcome.Voided, ticket.ToDto());
 
         var now = clock.GetUtcNow();
-        await using var tx = await db.Database.BeginTransactionAsync(ct);
 
-        // Conditional update so two scanners at different doors can't both admit the same ticket.
-        var updated = await db.Tickets
-            .Where(t => t.Id == ticket.Id && t.Status == TicketStatus.Valid)
-            .ExecuteUpdateAsync(s => s
-                .SetProperty(t => t.Status, TicketStatus.CheckedIn)
-                .SetProperty(t => t.CheckedInAt, now)
-                .SetProperty(t => t.CheckedInBy, staffId), ct);
-
-        if (updated == 0)
+        // The SQL Server retry strategy only allows explicit transactions inside a retriable unit.
+        var strategy = db.Database.CreateExecutionStrategy();
+        var outcome = await strategy.ExecuteAsync(async () =>
         {
-            await tx.RollbackAsync(ct);
+            db.ChangeTracker.Clear();
+            await using var tx = await db.Database.BeginTransactionAsync(ct);
+
+            // Conditional update so two scanners at different doors can't both admit the same ticket.
+            var updated = await db.Tickets
+                .Where(t => t.Id == ticket.Id && t.Status == TicketStatus.Valid)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(t => t.Status, TicketStatus.CheckedIn)
+                    .SetProperty(t => t.CheckedInAt, now)
+                    .SetProperty(t => t.CheckedInBy, staffId), ct);
+
+            if (updated == 0)
+            {
+                await tx.RollbackAsync(ct);
+                return (CheckInResult?)null;
+            }
+
+            db.Enqueue(Topics.TicketCheckedIn, ticket.EventId.ToString(), new TicketCheckedIn(ticket.Id, ticket.EventId, ticket.SeatId, staffId, now));
+            await db.SaveChangesAsync(ct);
+            await tx.CommitAsync(ct);
+            return new CheckInResult(CheckInOutcome.Admitted);
+        });
+
+        if (outcome is null)
+        {
             var current = await db.Tickets.AsNoTracking().FirstAsync(t => t.Id == ticket.Id, ct);
             return current.Status == TicketStatus.Void
                 ? new CheckInResult(CheckInOutcome.Voided, current.ToDto())
                 : new CheckInResult(CheckInOutcome.AlreadyCheckedIn, current.ToDto(), current.CheckedInAt);
         }
-
-        db.Enqueue(Topics.TicketCheckedIn, ticket.EventId.ToString(), new TicketCheckedIn(ticket.Id, ticket.EventId, ticket.SeatId, staffId, now));
-        await db.SaveChangesAsync(ct);
-        await tx.CommitAsync(ct);
 
         ticket.Status = TicketStatus.CheckedIn;
         ticket.CheckedInAt = now;
