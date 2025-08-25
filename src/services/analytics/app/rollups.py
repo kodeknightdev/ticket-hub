@@ -49,6 +49,8 @@ def refresh_rollups(s: Session) -> dict[str, int]:
     else:
         daily = daily.assign(refund_amount=0.0, refunded_tickets=0)
     daily = daily.fillna({"tickets": 0, "revenue": 0.0, "refund_amount": 0.0, "refunded_tickets": 0})
+    # empty frames come back as object columns, which cumsum refuses
+    daily = daily.astype({"tickets": "int64", "revenue": "float64", "refund_amount": "float64", "refunded_tickets": "int64"})
     daily = daily.sort_values(["event_id", "date"])
     daily["cumulative_tickets"] = daily.groupby("event_id")["tickets"].cumsum()
 

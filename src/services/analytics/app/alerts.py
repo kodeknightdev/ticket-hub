@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from datetime import timedelta
 
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select, true, update
 from sqlalchemy.orm import Session
 
 from .models import Alert, DimEvent, FactCheckin, FactRefund, FactTicketSale, ForecastSummary
@@ -69,7 +69,7 @@ def evaluate(s: Session) -> list[AlertCandidate]:
 def refresh_alerts(s: Session) -> int:
     """Alerts are a snapshot: the previous set is deactivated and the current rules re-evaluated."""
     candidates = evaluate(s)
-    s.execute(update(Alert).where(Alert.active.is_(True)).values(active=False))
+    s.execute(update(Alert).where(Alert.active == true()).values(active=False))
     created = now()
     s.add_all(Alert(rule=c.rule, severity=c.severity, event_id=c.event_id, message=c.message[:400], value=c.value,
                     created_at=created, active=True) for c in candidates)

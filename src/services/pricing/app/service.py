@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, false, select
 from sqlalchemy.orm import Session
 
 from . import rules
@@ -181,4 +181,4 @@ def recompute(db: Session, event_id: str, min_change_ratio: float, at: datetime 
 
 
 def active_event_ids(db: Session) -> list[str]:
-    return list(db.scalars(select(PricingEvent.event_id).where(PricingEvent.cancelled.is_(False), PricingEvent.starts_at > now())))
+    return list(db.scalars(select(PricingEvent.event_id).where(PricingEvent.cancelled == false(), PricingEvent.starts_at > now())))

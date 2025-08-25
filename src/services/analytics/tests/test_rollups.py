@@ -37,3 +37,7 @@ def test_rollup_refresh_is_repeatable(ingestor, db):
         refresh_rollups(s)
         assert len(list(s.scalars(select(DailyEventSales)))) == 1
 
+
+def test_refresh_on_an_empty_database(db):
+    with db.session() as s:
+        assert refresh_rollups(s) == {"daily_event_sales": 0, "daily_platform_sales": 0}

@@ -6,7 +6,7 @@ from datetime import date, datetime, timedelta
 
 import numpy as np
 import pandas as pd
-from sqlalchemy import func, select
+from sqlalchemy import func, select, true
 from sqlalchemy.orm import Session
 
 from . import forecasting
@@ -393,7 +393,7 @@ def pricing_impact(s: Session, f: Filters, limit: int = 50) -> dict:
 
 def active_alerts(s: Session, f: Filters) -> list[dict]:
     ids = scoped_event_ids(s, f)
-    q = select(Alert).where(Alert.active.is_(True))
+    q = select(Alert).where(Alert.active == true())
     if ids is not None:
         q = q.where(Alert.event_id.in_(ids or ["__none__"]))
     order = {"high": 0, "medium": 1, "info": 2}
