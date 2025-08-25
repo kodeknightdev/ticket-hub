@@ -1,0 +1,255 @@
+global:
+  imageRegistry: tickethubacr.azurecr.io
+  imageTag: "1.0.0"
+  imagePullPolicy: IfNotPresent
+  # merged into every workload's ConfigMap
+  env:
+    OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector.observability:4317
+    Kafka__BootstrapServers: ticket-hub-kafka-bootstrap.kafka:9092
+    KAFKA_BOOTSTRAP_SERVERS: ticket-hub-kafka-bootstrap.kafka:9092
+
+serviceAccount:
+  name: ticket-hub
+
+workloadIdentity:
+  enabled: true
+  clientId: 00000000-0000-0000-0000-000000000000
+  tenantId: 00000000-0000-0000-0000-000000000000
+
+secrets:
+  name: ticket-hub-secrets
+  create: true
+  # placeholders only; real values come from Key Vault in shared environments
+  values:
+    jwt-signing-key: change-me-jwt-signing-key-at-least-32-chars
+    ticket-signing-key: change-me-ticket-signing-key-at-least-32
+    mock-webhook-secret: change-me
+    stripe-secret-key: sk_test_replace_me
+    stripe-publishable-key: pk_test_replace_me
+    stripe-webhook-secret: whsec_replace_me
+    redis-connection: ticket-hub-redis:6379
+    identity-db: Server=placeholder.database.windows.net;Database=TicketHub_Identity;Authentication=Active Directory Workload Identity;Encrypt=True
+    events-db: Server=placeholder.database.windows.net;Database=TicketHub_Events;Authentication=Active Directory Workload Identity;Encrypt=True
+    seating-db: Server=placeholder.database.windows.net;Database=TicketHub_Seating;Authentication=Active Directory Workload Identity;Encrypt=True
+    orders-db: Server=placeholder.database.windows.net;Database=TicketHub_Orders;Authentication=Active Directory Workload Identity;Encrypt=True
+    notifier-db: Server=placeholder.database.windows.net;Database=TicketHub_Notifier;Authentication=Active Directory Workload Identity;Encrypt=True
+    pricing-db-url: mssql+pyodbc://@placeholder.database.windows.net/TicketHub_Pricing?driver=ODBC+Driver+18+for+SQL+Server
+    analytics-db-url: mssql+pyodbc://@placeholder.database.windows.net/TicketHub_Analytics?driver=ODBC+Driver+18+for+SQL+Server
+
+ingress:
+  enabled: true
+  className: nginx
+  appHost: app.tickethub.local
+  dashboardHost: dashboard.tickethub.local
+  tls: false
+  annotations: {}
+
+forecastCronJob:
+  enabled: false
+  schedule: "15 * * * *"
+  resources:
+    requests: { cpu: 250m, memory: 512Mi }
+    limits: { cpu: "1", memory: 1Gi }
+
+dotnetProbes: &dotnetProbes
+  liveness: /alive
+  readiness: /health
+
+defaultResources: &defaultResources
+  requests: { cpu: 100m, memory: 192Mi }
+  limits: { cpu: 500m, memory: 512Mi }
+
+services:
+  identity:
+    enabled: true
+    image: { repository: identity }
+    port: 8080
+    replicas: 2
+    probes: *dotnetProbes
+    resources: *defaultResources
+    pdb: { minAvailable: 1 }
+    env:
+      ASPNETCORE_ENVIRONMENT: Production
+      Database__AutoMigrate: "true"
+    secretEnv:
+      ConnectionStrings__Default: identity-db
+      Jwt__SigningKey: jwt-signing-key
+
+  events:
+    enabled: true
+    image: { repository: events }
+    port: 8080
+    replicas: 2
+    probes: *dotnetProbes
+    resources: *defaultResources
+    pdb: { minAvailable: 1 }
+    env:
+      ASPNETCORE_ENVIRONMENT: Production
+      Database__AutoMigrate: "true"
+    secretEnv:
+      ConnectionStrings__Default: events-db
+      Jwt__SigningKey: jwt-signing-key
+
+  seating:
+    enabled: true
+    image: { repository: seating }
+    port: 8080
+    extraPorts:
+      - { name: grpc, port: 8081, appProtocol: kubernetes.io/h2c }
+    probes: *dotnetProbes
+    resources:
+      requests: { cpu: 200m, memory: 256Mi }
+      limits: { cpu: "1", memory: 768Mi }
+    pdb: { minAvailable: 1 }
+    hpa: { enabled: true, minReplicas: 2, maxReplicas: 10, cpu: 60 }
+    env:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_HTTP_PORTS: ""
+      Kestrel__Endpoints__Http__Url: http://+:8080
+      Kestrel__Endpoints__Grpc__Url: http://+:8081
+      Database__AutoMigrate: "true"
+      Services__Events: "http://{{ .Release.Name }}-events"
+    secretEnv:
+      ConnectionStrings__Default: seating-db
+      ConnectionStrings__Redis: redis-connection
+      Jwt__SigningKey: jwt-signing-key
+
+  orders:
+    enabled: true
+    image: { repository: orders }
+    port: 8080
+    probes: *dotnetProbes
+    resources:
+      requests: { cpu: 200m, memory: 256Mi }
+      limits: { cpu: "1", memory: 768Mi }
+    pdb: { minAvailable: 1 }
+    hpa: { enabled: true, minReplicas: 2, maxReplicas: 8, cpu: 65 }
+    env:
+      ASPNETCORE_ENVIRONMENT: Production
+      Database__AutoMigrate: "true"
+      Services__SeatingGrpc: "http://{{ .Release.Name }}-seating:8081"
+      Services__Pricing: "http://{{ .Release.Name }}-pricing"
+    secretEnv:
+      ConnectionStrings__Default: orders-db
+      Jwt__SigningKey: jwt-signing-key
+      Tickets__SigningKey: ticket-signing-key
+      MockPayments__WebhookSecret: mock-webhook-secret
+      Stripe__SecretKey: stripe-secret-key
+      Stripe__PublishableKey: stripe-publishable-key
+      Stripe__WebhookSecret: stripe-webhook-secret
+
+  notifier:
+    enabled: true
+    image: { repository: notifier }
+    port: 8080
+    replicas: 1
+    probes: *dotnetProbes
+    resources: *defaultResources
+    env:
+      ASPNETCORE_ENVIRONMENT: Production
+      Database__AutoMigrate: "true"
+      Smtp__Host: smtp.placeholder.local
+      Smtp__Port: "25"
+    secretEnv:
+      ConnectionStrings__Default: notifier-db
+
+  pricing:
+    enabled: true
+    image: { repository: pricing }
+    port: 8000
+    replicas: 2
+    probes: { liveness: /alive, readiness: /health }
+    resources: *defaultResources
+    pdb: { minAvailable: 1 }
+    env:
+      SERVICE_NAME: pricing
+      KAFKA_GROUP_ID: pricing
+      AUTO_MIGRATE: "true"
+    secretEnv:
+      DATABASE_URL: pricing-db-url
+
+  analytics:
+    enabled: true
+    image: { repository: analytics }
+    port: 8000
+    replicas: 2
+    probes: { liveness: /alive, readiness: /health }
+    resources:
+      requests: { cpu: 250m, memory: 512Mi }
+      limits: { cpu: "1", memory: 1536Mi }
+    pdb: { minAvailable: 1 }
+    env:
+      SERVICE_NAME: analytics
+      KAFKA_GROUP_ID: analytics
+      AUTO_MIGRATE: "true"
+      SCHEDULER_ENABLED: "true"
+    secretEnv:
+      DATABASE_URL: analytics-db-url
+
+  ticketing-bff:
+    enabled: true
+    image: { repository: ticketing-bff }
+    port: 8080
+    probes: *dotnetProbes
+    resources: *defaultResources
+    pdb: { minAvailable: 1 }
+    hpa: { enabled: true, minReplicas: 2, maxReplicas: 10, cpu: 60 }
+    env:
+      ASPNETCORE_ENVIRONMENT: Production
+      Bff__IdentityUrl: "http://{{ .Release.Name }}-identity"
+      Bff__FrontendOrigin: "https://{{ .Values.ingress.appHost }}"
+      Services__Events: "http://{{ .Release.Name }}-events"
+      Services__Orders: "http://{{ .Release.Name }}-orders"
+      Services__Pricing: "http://{{ .Release.Name }}-pricing"
+      Services__SeatingGrpc: "http://{{ .Release.Name }}-seating:8081"
+      ReverseProxy__Clusters__events__Destinations__primary__Address: "http://{{ .Release.Name }}-events"
+      ReverseProxy__Clusters__seating__Destinations__primary__Address: "http://{{ .Release.Name }}-seating"
+      ReverseProxy__Clusters__orders__Destinations__primary__Address: "http://{{ .Release.Name }}-orders"
+      ReverseProxy__Clusters__pricing__Destinations__primary__Address: "http://{{ .Release.Name }}-pricing"
+    secretEnv:
+      ConnectionStrings__Redis: redis-connection
+
+  dashboard-bff:
+    enabled: true
+    image: { repository: dashboard-bff }
+    port: 8080
+    replicas: 2
+    probes: *dotnetProbes
+    resources: *defaultResources
+    pdb: { minAvailable: 1 }
+    env:
+      ASPNETCORE_ENVIRONMENT: Production
+      Bff__IdentityUrl: "http://{{ .Release.Name }}-identity"
+      Bff__FrontendOrigin: "https://{{ .Values.ingress.dashboardHost }}"
+      Services__Analytics: "http://{{ .Release.Name }}-analytics"
+      Services__Events: "http://{{ .Release.Name }}-events"
+      Services__Orders: "http://{{ .Release.Name }}-orders"
+      Services__Pricing: "http://{{ .Release.Name }}-pricing"
+      Services__SeatingGrpc: "http://{{ .Release.Name }}-seating:8081"
+      ReverseProxy__Clusters__events__Destinations__primary__Address: "http://{{ .Release.Name }}-events"
+    secretEnv:
+      ConnectionStrings__Redis: redis-connection
+
+  ticketing-frontend:
+    enabled: true
+    image: { repository: ticketing-frontend }
+    port: 8080
+    replicas: 2
+    probes: { liveness: /, readiness: / }
+    resources:
+      requests: { cpu: 25m, memory: 32Mi }
+      limits: { cpu: 200m, memory: 128Mi }
+    env:
+      BFF_UPSTREAM: "http://{{ .Release.Name }}-ticketing-bff"
+
+  dashboard-frontend:
+    enabled: true
+    image: { repository: dashboard-frontend }
+    port: 8080
+    replicas: 1
+    probes: { liveness: /, readiness: / }
+    resources:
+      requests: { cpu: 25m, memory: 32Mi }
+      limits: { cpu: 200m, memory: 128Mi }
+    env:
+      BFF_UPSTREAM: "http://{{ .Release.Name }}-dashboard-bff"

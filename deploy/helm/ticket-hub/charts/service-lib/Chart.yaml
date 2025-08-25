@@ -1,0 +1,5 @@
+apiVersion: v2
+name: service-lib
+description: Shared templates for every ticket-hub workload (Deployment, Service, ConfigMap, PDB, HPA)
+type: library
+version: 0.1.0

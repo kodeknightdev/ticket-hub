@@ -1,0 +1,6 @@
+dependencies:
+- name: service-lib
+  repository: file://charts/service-lib
+  version: 0.1.0
+digest: sha256:8d140f4d3c39d2f4de6dc313297d4f83f6aa7b793fc5acbcbc560d05ab460e88
+generated: "2026-10-14T02:25:41.476094885Z"
