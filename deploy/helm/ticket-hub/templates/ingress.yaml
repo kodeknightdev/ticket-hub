@@ -1,0 +1,79 @@
+{{- if .Values.ingress.enabled }}
+{{- $root := . }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Release.Name }}-app
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: 2m
+    # SignalR: long-lived WebSockets, and sticky sessions in case a client falls back to long polling
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/affinity: cookie
+    nginx.ingress.kubernetes.io/session-cookie-name: th-affinity
+    nginx.ingress.kubernetes.io/session-cookie-samesite: Strict
+    nginx.ingress.kubernetes.io/session-cookie-max-age: "3600"
+    {{- with .Values.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- if .Values.ingress.tls }}
+  tls:
+    - hosts: [{{ .Values.ingress.appHost | quote }}]
+      secretName: {{ .Release.Name }}-app-tls
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.appHost | quote }}
+      http:
+        paths:
+          {{- range list "/bff" "/api" "/hubs" }}
+          - path: {{ . }}
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "ticket-hub.svc" (dict "root" $root "name" "ticketing-bff") }}
+                port: { name: http }
+          {{- end }}
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "ticket-hub.svc" (dict "root" $root "name" "ticketing-frontend") }}
+                port: { name: http }
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Release.Name }}-dashboard
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: 1m
+    {{- with .Values.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- if .Values.ingress.tls }}
+  tls:
+    - hosts: [{{ .Values.ingress.dashboardHost | quote }}]
+      secretName: {{ .Release.Name }}-dashboard-tls
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.dashboardHost | quote }}
+      http:
+        paths:
+          {{- range list "/bff" "/api" }}
+          - path: {{ . }}
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "ticket-hub.svc" (dict "root" $root "name" "dashboard-bff") }}
+                port: { name: http }
+          {{- end }}
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "ticket-hub.svc" (dict "root" $root "name" "dashboard-frontend") }}
+                port: { name: http }
+{{- end }}

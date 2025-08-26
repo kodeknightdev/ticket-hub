@@ -1,0 +1,24 @@
+global:
+  imageTag: dev
+
+workloadIdentity:
+  clientId: 00000000-0000-0000-0000-000000000000
+
+ingress:
+  appHost: app.tickethub.local
+  dashboardHost: dashboard.tickethub.local
+  tls: false
+
+forecastCronJob:
+  enabled: false
+
+services:
+  identity: { replicas: 1, pdb: null, env: { ASPNETCORE_ENVIRONMENT: Development, Database__AutoMigrate: "true" } }
+  events: { replicas: 1, pdb: null, env: { ASPNETCORE_ENVIRONMENT: Development, Database__AutoMigrate: "true" } }
+  seating: { pdb: null, hpa: { enabled: true, minReplicas: 1, maxReplicas: 3, cpu: 70 } }
+  orders: { pdb: null, hpa: { enabled: true, minReplicas: 1, maxReplicas: 3, cpu: 70 } }
+  pricing: { replicas: 1, pdb: null }
+  analytics: { replicas: 1, pdb: null }
+  ticketing-bff: { pdb: null, hpa: { enabled: true, minReplicas: 1, maxReplicas: 3, cpu: 70 } }
+  dashboard-bff: { replicas: 1, pdb: null }
+  ticketing-frontend: { replicas: 1 }

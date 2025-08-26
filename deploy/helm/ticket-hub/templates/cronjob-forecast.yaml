@@ -1,0 +1,49 @@
+{{- if .Values.forecastCronJob.enabled }}
+{{- $svc := .Values.services.analytics }}
+# Alternative to the in-process scheduler: retrain forecasts on a schedule from a short-lived pod.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ .Release.Name }}-forecast-retrain
+  labels:
+    app.kubernetes.io/name: forecast-retrain
+    app.kubernetes.io/part-of: ticket-hub
+spec:
+  schedule: {{ .Values.forecastCronJob.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 1800
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: forecast-retrain
+            {{- if .Values.workloadIdentity.enabled }}
+            azure.workload.identity/use: "true"
+            {{- end }}
+        spec:
+          serviceAccountName: {{ .Values.serviceAccount.name }}
+          restartPolicy: OnFailure
+          securityContext:
+            runAsNonRoot: true
+          containers:
+            - name: retrain
+              image: {{ printf "%s/%s:%s" .Values.global.imageRegistry $svc.image.repository (default .Values.global.imageTag $svc.image.tag) }}
+              command: ["python", "-m", "app.jobs", "all"]
+              envFrom:
+                - configMapRef:
+                    name: {{ printf "%s-analytics" .Release.Name }}
+              env:
+                {{- range $envName, $secretKey := $svc.secretEnv }}
+                - name: {{ $envName }}
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ $.Values.secrets.name }}
+                      key: {{ $secretKey }}
+                {{- end }}
+              resources:
+                {{- toYaml .Values.forecastCronJob.resources | nindent 16 }}
+{{- end }}
