@@ -1,0 +1,15 @@
+# Copy to terraform.tfvars (git-ignored). Every id below is a placeholder.
+subscription_id           = "00000000-0000-0000-0000-000000000000"
+tenant_id                 = "00000000-0000-0000-0000-000000000000"
+location                  = "uksouth"
+location_short            = "uks"
+deployer_object_id        = "00000000-0000-0000-0000-000000000000"
+sql_admin_group_name      = "ticket-hub-sql-admins-prod"
+sql_admin_group_object_id = "00000000-0000-0000-0000-000000000000"
+aks_admin_group_object_ids = ["00000000-0000-0000-0000-000000000000"]
+
+tags = {
+  owner       = "platform-team"
+  cost_center = "ticketing"
+}
+private_endpoint_subnet_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/th-network-rg/providers/Microsoft.Network/virtualNetworks/th-prod-vnet/subnets/private-endpoints"
