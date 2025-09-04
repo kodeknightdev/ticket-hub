@@ -1,0 +1,33 @@
+parameters:
+  - name: env
+    type: string
+  - name: resourceGroup
+    type: string
+  - name: cluster
+    type: string
+
+steps:
+  - checkout: self
+  - task: HelmInstaller@1
+    inputs:
+      helmVersionToInstall: 3.17.3
+  - script: helm dependency build deploy/helm/ticket-hub
+    displayName: helm dependency build
+  - task: HelmDeploy@0
+    displayName: helm upgrade --install (${{ parameters.env }})
+    inputs:
+      connectionType: Azure Resource Manager
+      azureSubscription: azure-arm-connection
+      azureResourceGroup: ${{ parameters.resourceGroup }}
+      kubernetesCluster: ${{ parameters.cluster }}
+      useClusterAdmin: false
+      namespace: ticket-hub
+      command: upgrade
+      chartType: FilePath
+      chartPath: deploy/helm/ticket-hub
+      releaseName: th
+      valueFile: deploy/helm/ticket-hub/values-${{ parameters.env }}.yaml
+      overrideValues: global.imageRegistry=$(acrLoginServer),global.imageTag=$(Build.BuildId),workloadIdentity.clientId=$(workloadClientId${{ parameters.env }})
+      install: true
+      waitForExecution: true
+      arguments: --create-namespace --atomic --timeout 10m

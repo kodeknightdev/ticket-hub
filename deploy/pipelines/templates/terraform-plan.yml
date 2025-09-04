@@ -1,0 +1,42 @@
+parameters:
+  - name: env
+    type: string
+
+steps:
+  - task: TerraformInstaller@1
+    displayName: Install Terraform 1.11.4
+    inputs:
+      terraformVersion: 1.11.4
+  - task: TerraformTaskV4@4
+    displayName: terraform init (${{ parameters.env }})
+    inputs:
+      provider: azurerm
+      command: init
+      workingDirectory: infra/terraform/envs/${{ parameters.env }}
+      backendServiceArm: azure-arm-connection
+      backendAzureRmResourceGroupName: $(tfStateResourceGroup)
+      backendAzureRmStorageAccountName: $(tfStateStorageAccount)
+      backendAzureRmContainerName: tfstate
+      backendAzureRmKey: ticket-hub.${{ parameters.env }}.tfstate
+  - task: TerraformTaskV4@4
+    displayName: terraform validate (${{ parameters.env }})
+    inputs:
+      provider: azurerm
+      command: validate
+      workingDirectory: infra/terraform/envs/${{ parameters.env }}
+  - task: TerraformTaskV4@4
+    displayName: terraform plan (${{ parameters.env }})
+    inputs:
+      provider: azurerm
+      command: plan
+      workingDirectory: infra/terraform/envs/${{ parameters.env }}
+      environmentServiceNameAzureRM: azure-arm-connection
+      commandOptions: >-
+        -input=false -out=$(Build.ArtifactStagingDirectory)/${{ parameters.env }}.tfplan
+        -var subscription_id=$(subscriptionId) -var tenant_id=$(tenantId)
+        -var deployer_object_id=$(deployerObjectId)
+        -var sql_admin_group_name=$(sqlAdminGroupName) -var sql_admin_group_object_id=$(sqlAdminGroupObjectId)
+  - task: PublishPipelineArtifact@1
+    inputs:
+      targetPath: $(Build.ArtifactStagingDirectory)/${{ parameters.env }}.tfplan
+      artifact: tfplan-${{ parameters.env }}

@@ -1,0 +1,26 @@
+parameters:
+  - name: service
+    type: string
+
+steps:
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '3.13'
+  - script: |
+      python -m pip install --upgrade pip
+      pip install -r requirements.txt pytest-cov==6.1.1
+    workingDirectory: src/services/${{ parameters.service }}
+    displayName: Install ${{ parameters.service }} dependencies
+  - script: python -m pytest --junitxml=$(Agent.TempDirectory)/${{ parameters.service }}-junit.xml --cov=app --cov-report=xml:$(Agent.TempDirectory)/${{ parameters.service }}-coverage.xml
+    workingDirectory: src/services/${{ parameters.service }}
+    displayName: pytest ${{ parameters.service }}
+  - task: PublishTestResults@2
+    condition: succeededOrFailed()
+    inputs:
+      testResultsFormat: JUnit
+      testResultsFiles: $(Agent.TempDirectory)/${{ parameters.service }}-junit.xml
+      testRunTitle: ${{ parameters.service }}
+  - task: PublishCodeCoverageResults@2
+    condition: succeededOrFailed()
+    inputs:
+      summaryFileLocation: $(Agent.TempDirectory)/${{ parameters.service }}-coverage.xml

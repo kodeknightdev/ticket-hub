@@ -1,0 +1,172 @@
+# ticket-hub CI/CD. Build -> scan -> images -> infra plan -> dev -> smoke -> prod (approval on the prod environment).
+trigger:
+  branches:
+    include: [main]
+  paths:
+    include:
+      - src/*
+      - shared/*
+      - tests/*
+      - tools/*
+      - ticketing-frontend/*
+      - dashboard-frontend/*
+      - deploy/*
+      - infra/*
+      - azure-pipelines.yml
+      - Directory.Build.props
+      - Directory.Packages.props
+      - global.json
+
+pr:
+  branches:
+    include: [main]
+
+variables:
+  - group: ticket-hub-common
+  - name: isMain
+    value: $[eq(variables['Build.SourceBranch'], 'refs/heads/main')]
+
+pool:
+  vmImage: ubuntu-24.04
+
+stages:
+  - stage: BuildTest
+    displayName: Build & Test
+    jobs:
+      - job: changes
+        displayName: Detect changes
+        steps:
+          - template: deploy/pipelines/templates/detect-changes.yml
+
+      - job: dotnet
+        displayName: .NET services, BFFs and tools
+        dependsOn: changes
+        condition: eq(dependencies.changes.outputs['detect.dotnet'], 'true')
+        steps:
+          - template: deploy/pipelines/templates/dotnet-build-test.yml
+
+      - job: pricing
+        displayName: Python pricing
+        dependsOn: changes
+        condition: eq(dependencies.changes.outputs['detect.pricing'], 'true')
+        steps:
+          - template: deploy/pipelines/templates/python-test.yml
+            parameters: { service: pricing }
+
+      - job: analytics
+        displayName: Python analytics
+        dependsOn: changes
+        condition: eq(dependencies.changes.outputs['detect.analytics'], 'true')
+        steps:
+          - template: deploy/pipelines/templates/python-test.yml
+            parameters: { service: analytics }
+
+      - job: ticketing_frontend
+        displayName: Ticketing frontend
+        dependsOn: changes
+        condition: eq(dependencies.changes.outputs['detect.ticketingfe'], 'true')
+        steps:
+          - template: deploy/pipelines/templates/angular-test.yml
+            parameters: { app: ticketing-frontend }
+
+      - job: dashboard_frontend
+        displayName: Dashboard frontend
+        dependsOn: changes
+        condition: eq(dependencies.changes.outputs['detect.dashboardfe'], 'true')
+        steps:
+          - template: deploy/pipelines/templates/angular-test.yml
+            parameters: { app: dashboard-frontend }
+
+  - stage: SecurityScan
+    displayName: Security scan
+    dependsOn: BuildTest
+    jobs:
+      - job: scan
+        steps:
+          - template: deploy/pipelines/templates/security-scan.yml
+
+  - stage: Images
+    displayName: Images
+    dependsOn: [BuildTest, SecurityScan]
+    condition: and(succeeded('BuildTest'), eq(variables.isMain, true))
+    variables:
+      changes: $[stageDependencies.BuildTest.changes.outputs]
+    jobs:
+      - job: images
+        displayName: Build and push changed images
+        strategy:
+          matrix:
+            identity: { image: identity, dockerfile: src/services/identity/TicketHub.Identity/Dockerfile, context: ., flag: identity }
+            events: { image: events, dockerfile: src/services/events/TicketHub.Events/Dockerfile, context: ., flag: events }
+            seating: { image: seating, dockerfile: src/services/seating/TicketHub.Seating/Dockerfile, context: ., flag: seating }
+            orders: { image: orders, dockerfile: src/services/orders/TicketHub.Orders/Dockerfile, context: ., flag: orders }
+            notifier: { image: notifier, dockerfile: src/services/notifier/TicketHub.Notifier/Dockerfile, context: ., flag: notifier }
+            pricing: { image: pricing, dockerfile: src/services/pricing/Dockerfile, context: src/services/pricing, flag: pricing }
+            analytics: { image: analytics, dockerfile: src/services/analytics/Dockerfile, context: src/services/analytics, flag: analytics }
+            ticketing_bff: { image: ticketing-bff, dockerfile: src/bff/TicketHub.TicketingBff/Dockerfile, context: ., flag: ticketing-bff }
+            dashboard_bff: { image: dashboard-bff, dockerfile: src/bff/TicketHub.DashboardBff/Dockerfile, context: ., flag: dashboard-bff }
+            ticketing_frontend: { image: ticketing-frontend, dockerfile: ticketing-frontend/Dockerfile, context: ticketing-frontend, flag: ticketingfe }
+            dashboard_frontend: { image: dashboard-frontend, dockerfile: dashboard-frontend/Dockerfile, context: dashboard-frontend, flag: dashboardfe }
+            seed_history: { image: seed-history, dockerfile: tools/seed-history/Dockerfile, context: ., flag: seedhistory }
+        steps:
+          - bash: |
+              flag=$(echo '$(changes)' | python3 -c "import json,sys; print(json.load(sys.stdin).get('detect.$(flag)','true'))")
+              echo "##vso[task.setvariable variable=shouldBuild]$flag"
+            displayName: Should $(image) be rebuilt?
+          - template: deploy/pipelines/templates/docker-image.yml
+            parameters:
+              name: $(image)
+              dockerfile: $(dockerfile)
+              context: $(context)
+
+  - stage: InfraPlan
+    displayName: Infra plan
+    dependsOn: BuildTest
+    condition: and(succeeded(), eq(variables.isMain, true))
+    jobs:
+      - job: plan_dev
+        steps:
+          - template: deploy/pipelines/templates/terraform-plan.yml
+            parameters: { env: dev }
+      - job: plan_prod
+        steps:
+          - template: deploy/pipelines/templates/terraform-plan.yml
+            parameters: { env: prod }
+
+  - stage: DeployDev
+    displayName: Deploy Dev
+    dependsOn: [Images, InfraPlan]
+    condition: and(succeeded(), eq(variables.isMain, true))
+    jobs:
+      - deployment: helm_dev
+        environment: ticket-hub-dev
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - template: deploy/pipelines/templates/helm-deploy.yml
+                  parameters: { env: dev, resourceGroup: $(aksResourceGroupDev), cluster: $(aksClusterDev) }
+
+  - stage: SmokeTest
+    displayName: Smoke test
+    dependsOn: DeployDev
+    jobs:
+      - job: smoke
+        steps:
+          - template: deploy/pipelines/templates/smoke-test.yml
+            parameters: { resourceGroup: $(aksResourceGroupDev), cluster: $(aksClusterDev) }
+
+  - stage: DeployProd
+    displayName: Deploy Prod
+    dependsOn: SmokeTest
+    condition: and(succeeded(), eq(variables.isMain, true))
+    jobs:
+      # The ticket-hub-prod environment carries the manual approval check.
+      - deployment: helm_prod
+        environment: ticket-hub-prod
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - template: deploy/pipelines/templates/helm-deploy.yml
+                  parameters: { env: prod, resourceGroup: $(aksResourceGroupProd), cluster: $(aksClusterProd) }

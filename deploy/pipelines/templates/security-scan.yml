@@ -1,0 +1,34 @@
+# Reports only; findings are reviewed, they don't block the build.
+steps:
+  - task: UseDotNet@2
+    inputs:
+      packageType: sdk
+      useGlobalJson: true
+  - script: |
+      dotnet restore TicketHub.sln
+      dotnet list TicketHub.sln package --vulnerable --include-transitive | tee $(Build.ArtifactStagingDirectory)/dotnet-vulnerable.txt
+    displayName: dotnet list package --vulnerable
+    continueOnError: true
+  - task: NodeTool@0
+    inputs:
+      versionSpec: '22.14.0'
+  - script: |
+      for app in ticketing-frontend dashboard-frontend; do
+        (cd $app && npm audit --omit=dev --audit-level=high) | tee -a $(Build.ArtifactStagingDirectory)/npm-audit.txt || true
+      done
+    displayName: npm audit
+    continueOnError: true
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '3.13'
+  - script: |
+      pip install pip-audit==2.8.0
+      for svc in pricing analytics; do
+        pip-audit -r src/services/$svc/requirements.txt | tee -a $(Build.ArtifactStagingDirectory)/pip-audit.txt || true
+      done
+    displayName: pip-audit
+    continueOnError: true
+  - task: PublishPipelineArtifact@1
+    inputs:
+      targetPath: $(Build.ArtifactStagingDirectory)
+      artifact: security-reports

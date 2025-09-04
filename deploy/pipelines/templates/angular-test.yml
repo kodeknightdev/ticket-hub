@@ -1,0 +1,21 @@
+parameters:
+  - name: app
+    type: string
+
+steps:
+  - task: NodeTool@0
+    inputs:
+      versionSpec: '22.14.0'
+  - script: npm ci --no-audit --no-fund
+    workingDirectory: ${{ parameters.app }}
+    displayName: npm ci (${{ parameters.app }})
+  - script: npx ng build --configuration production
+    workingDirectory: ${{ parameters.app }}
+    displayName: Build ${{ parameters.app }}
+  - script: npx ng test --watch=false --browsers=ChromeHeadlessCI --code-coverage
+    workingDirectory: ${{ parameters.app }}
+    displayName: Test ${{ parameters.app }}
+  - task: PublishCodeCoverageResults@2
+    condition: succeededOrFailed()
+    inputs:
+      summaryFileLocation: ${{ parameters.app }}/coverage/**/cobertura-coverage.xml

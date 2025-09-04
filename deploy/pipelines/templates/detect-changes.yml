@@ -1,0 +1,36 @@
+# Sets one output variable per component (identity=true, ...) based on the files changed in this run,
+# so later jobs can skip components nobody touched. Shared code marks every dependent component.
+steps:
+  - checkout: self
+    fetchDepth: 2
+  - bash: |
+      set -euo pipefail
+      if [ "$(Build.Reason)" = "Manual" ] || ! git rev-parse HEAD~1 >/dev/null 2>&1; then
+        changed="ALL"
+      else
+        changed=$(git diff --name-only HEAD~1 HEAD)
+      fi
+      echo "Changed files:"; echo "$changed"
+
+      hit() { [ "$changed" = "ALL" ] && return 0; echo "$changed" | grep -Eq "$1"; }
+      set_flag() { echo "##vso[task.setvariable variable=$1;isOutput=true]$2"; echo "$1=$2"; }
+
+      dotnet_shared='^(shared/|Directory\.(Build|Packages)\.props|global\.json|TicketHub\.sln|tests/)'
+      for svc in identity events seating orders notifier; do
+        if hit "^src/services/$svc/" || hit "$dotnet_shared"; then set_flag "$svc" true; else set_flag "$svc" false; fi
+      done
+      for bff in ticketing-bff:TicketingBff dashboard-bff:DashboardBff; do
+        name=${bff%%:*}; dir=${bff##*:}
+        if hit "^src/bff/TicketHub\.$dir/" || hit "$dotnet_shared"; then set_flag "$name" true; else set_flag "$name" false; fi
+      done
+      for py in pricing analytics; do
+        if hit "^src/services/$py/"; then set_flag "$py" true; else set_flag "$py" false; fi
+      done
+      if hit '^tools/seed-history/' || hit '^src/services/analytics/'; then set_flag seedhistory true; else set_flag seedhistory false; fi
+      for fe in ticketing-frontend dashboard-frontend; do
+        if hit "^$fe/"; then set_flag "${fe%%-frontend}fe" true; else set_flag "${fe%%-frontend}fe" false; fi
+      done
+      if hit '^(src/|shared/|tests/|tools/load-sim/|Directory\.|global\.json|TicketHub\.sln)'; then set_flag dotnet true; else set_flag dotnet false; fi
+      if hit '^infra/terraform/'; then set_flag infra true; else set_flag infra false; fi
+    name: detect
+    displayName: Detect changed components

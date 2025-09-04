@@ -1,0 +1,32 @@
+parameters:
+  - name: solution
+    type: string
+    default: TicketHub.sln
+
+steps:
+  - task: UseDotNet@2
+    displayName: Use .NET SDK from global.json
+    inputs:
+      packageType: sdk
+      useGlobalJson: true
+  - script: dotnet restore ${{ parameters.solution }} --locked-mode
+    displayName: Restore (locked)
+  - script: dotnet build ${{ parameters.solution }} -c Release --no-restore
+    displayName: Build
+  # Testcontainers needs the Docker daemon that Microsoft-hosted ubuntu agents provide.
+  - script: >
+      dotnet test ${{ parameters.solution }} -c Release --no-build
+      --logger trx --results-directory $(Agent.TempDirectory)/test-results
+      --collect "XPlat Code Coverage"
+    displayName: Test
+  - task: PublishTestResults@2
+    condition: succeededOrFailed()
+    inputs:
+      testResultsFormat: VSTest
+      testResultsFiles: '**/*.trx'
+      searchFolder: $(Agent.TempDirectory)/test-results
+      testRunTitle: .NET
+  - task: PublishCodeCoverageResults@2
+    condition: succeededOrFailed()
+    inputs:
+      summaryFileLocation: $(Agent.TempDirectory)/test-results/**/coverage.cobertura.xml
