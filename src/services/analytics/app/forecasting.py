@@ -45,8 +45,10 @@ class EventForecast:
     def sellout_date(self) -> date | None:
         if self.sold_to_date >= self.capacity:
             return None
+        # matches what the UI rounds to 100%, so "100% projected" never sits next to "no sell-out"
+        threshold = self.capacity - max(0.5, 0.005 * self.capacity)
         for d, c in zip(self.dates, self.cumulative):
-            if c >= self.capacity - 0.5:
+            if c >= threshold:
                 return d
         return None
 
