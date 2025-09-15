@@ -1,0 +1,11 @@
+# Include C# source files in language statistics
+*.cs linguist-detectable=true
+**/*.cs linguist-detectable=true
+
+# Include Python source files in language statistics
+*.py linguist-detectable=true
+**/*.py linguist-detectable=true
+
+# Include JavaScript source files in language statistics
+*.js linguist-detectable=true
+**/*.js linguist-detectable=true
