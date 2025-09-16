@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
@@ -15,6 +16,12 @@ using TicketHub.BuildingBlocks.Messaging;
 
 namespace TicketHub.BuildingBlocks.Hosting;
 
+public static class SecretsProviders
+{
+    public const string Environment = "environment";
+    public const string KeyVault = "keyvault";
+}
+
 public static class ServiceDefaults
 {
     public const string LiveTag = "live";
@@ -22,6 +29,7 @@ public static class ServiceDefaults
 
     public static WebApplicationBuilder AddServiceDefaults(this WebApplicationBuilder builder, string serviceName)
     {
+        builder.AddSecrets();
         builder.Host.UseSerilog((ctx, cfg) => cfg
             .ReadFrom.Configuration(ctx.Configuration)
             .Enrich.FromLogContext()
@@ -36,6 +44,25 @@ public static class ServiceDefaults
         builder.Services.AddHealthChecks()
             .AddCheck("self", () => HealthCheckResult.Healthy(), [LiveTag]);
 
+        return builder;
+    }
+
+    /// <summary>
+    /// Secrets:Provider = "environment" (default) reads secrets from env vars like everything else;
+    /// "keyvault" also reads the files the Key Vault CSI driver mounts (one file per secret, "__" for ":").
+    /// </summary>
+    public static IHostApplicationBuilder AddSecrets(this IHostApplicationBuilder builder)
+    {
+        var provider = (builder.Configuration["Secrets:Provider"] ?? SecretsProviders.Environment).ToLowerInvariant();
+        if (provider == SecretsProviders.KeyVault)
+        {
+            var path = builder.Configuration["Secrets:Path"] ?? "/mnt/secrets-store";
+            builder.Configuration.AddKeyPerFile(path, optional: false, reloadOnChange: true);
+        }
+        else if (provider != SecretsProviders.Environment)
+        {
+            throw new InvalidOperationException($"Unknown Secrets:Provider '{provider}'");
+        }
         return builder;
     }
 

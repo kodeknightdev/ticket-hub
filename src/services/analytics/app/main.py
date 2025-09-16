@@ -55,7 +55,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
         consumer = None
         if settings.kafka_enabled:
-            consumer = ConsumerLoop(settings.kafka_bootstrap_servers, settings.kafka_group_id, ingestor.consumer_handlers(), settings.kafka_max_attempts)
+            consumer = ConsumerLoop(settings.kafka_config(), settings.kafka_group_id, ingestor.consumer_handlers(), settings.kafka_max_attempts)
             consumer.start()
         scheduler = start_scheduler(settings, db) if settings.scheduler_enabled else None
         yield

@@ -39,14 +39,13 @@ public sealed class KafkaConsumerService(
     private async Task Run(CancellationToken ct)
     {
         var retryTopic = Topics.RetryFor(registration.GroupId);
-        var config = new ConsumerConfig
+        var config = options.Value.Apply(new ConsumerConfig
         {
-            BootstrapServers = options.Value.BootstrapServers,
             GroupId = registration.GroupId,
             AutoOffsetReset = AutoOffsetReset.Earliest,
             EnableAutoCommit = false,
             AllowAutoCreateTopics = true
-        };
+        });
 
         using var consumer = new ConsumerBuilder<string, string>(config)
             .SetErrorHandler((_, e) => logger.LogWarning("Kafka error: {Reason}", e.Reason))
@@ -143,7 +142,7 @@ public sealed class KafkaConsumerService(
             return;
         }
 
-        using var producer = new ProducerBuilder<string, string>(new ProducerConfig { BootstrapServers = options.Value.BootstrapServers }).Build();
+        using var producer = new ProducerBuilder<string, string>(options.Value.Apply(new ProducerConfig())).Build();
         var headers = new Confluent.Kafka.Headers
         {
             { WellKnownHeaders.OriginalTopic, Encoding.UTF8.GetBytes(originalTopic) },

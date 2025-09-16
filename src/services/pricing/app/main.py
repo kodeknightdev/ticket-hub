@@ -36,13 +36,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         db = Database(settings.database_url)
         if settings.auto_migrate:
             run_migrations(settings, db)
-        publisher = EventPublisher(settings.kafka_bootstrap_servers if settings.kafka_enabled else None)
+        publisher = EventPublisher(settings.kafka_config() if settings.kafka_enabled else None)
         handlers = PricingHandlers(db, publisher, settings.min_change_ratio)
         app.state.db, app.state.publisher, app.state.handlers = db, publisher, handlers
 
         consumer = None
         if settings.kafka_enabled:
-            consumer = ConsumerLoop(settings.kafka_bootstrap_servers, settings.kafka_group_id, handlers.topics(), settings.kafka_max_attempts)
+            consumer = ConsumerLoop(settings.kafka_config(), settings.kafka_group_id, handlers.topics(), settings.kafka_max_attempts)
             consumer.start()
 
         async def periodic():

@@ -33,12 +33,12 @@ def _headers_to_dict(headers: list[tuple[str, bytes]] | None) -> dict[str, str]:
 
 
 class EventPublisher:
-    def __init__(self, bootstrap: str | None):
+    def __init__(self, client_config: dict[str, str] | None):
         self._producer = None
-        if bootstrap:
+        if client_config:
             from confluent_kafka import Producer
 
-            self._producer = Producer({"bootstrap.servers": bootstrap, "enable.idempotence": True, "acks": "all"})
+            self._producer = Producer({**client_config, "enable.idempotence": True, "acks": "all"})
         self.sent: list[tuple[str, dict[str, Any]]] = []
 
     def publish(self, topic: str, key: str, data: dict[str, Any]) -> dict[str, Any]:
@@ -59,8 +59,8 @@ class EventPublisher:
 
 
 class ConsumerLoop:
-    def __init__(self, bootstrap: str, group_id: str, handlers: dict[str, Handler], max_attempts: int = 3):
-        self.bootstrap = bootstrap
+    def __init__(self, client_config: dict[str, str], group_id: str, handlers: dict[str, Handler], max_attempts: int = 3):
+        self.client_config = client_config
         self.group_id = group_id
         self.handlers = handlers
         self.max_attempts = max_attempts
@@ -82,13 +82,13 @@ class ConsumerLoop:
         from confluent_kafka import Consumer, Producer
 
         consumer = Consumer({
-            "bootstrap.servers": self.bootstrap,
+            **self.client_config,
             "group.id": self.group_id,
             "auto.offset.reset": "earliest",
             "enable.auto.commit": False,
             "allow.auto.create.topics": True,
         })
-        forwarder = Producer({"bootstrap.servers": self.bootstrap})
+        forwarder = Producer(self.client_config)
         consumer.subscribe([*self.handlers.keys(), self.retry_topic])
         log.info("consumer %s subscribed to %s", self.group_id, ", ".join(self.handlers))
 
