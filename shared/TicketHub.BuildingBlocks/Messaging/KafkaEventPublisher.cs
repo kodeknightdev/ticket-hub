@@ -15,14 +15,13 @@ public sealed class KafkaEventPublisher : IEventPublisher, IDisposable
     public KafkaEventPublisher(IOptions<KafkaOptions> options, ILogger<KafkaEventPublisher> logger)
     {
         _logger = logger;
-        _producer = new ProducerBuilder<string, string>(new ProducerConfig
+        _producer = new ProducerBuilder<string, string>(options.Value.Apply(new ProducerConfig
         {
-            BootstrapServers = options.Value.BootstrapServers,
             Acks = Acks.All,
             EnableIdempotence = true,
             LingerMs = 5,
             MessageTimeoutMs = 15000
-        }).Build();
+        })).Build();
     }
 
     public async Task PublishAsync(string topic, EventEnvelope envelope, string? traceParent = null, CancellationToken ct = default)

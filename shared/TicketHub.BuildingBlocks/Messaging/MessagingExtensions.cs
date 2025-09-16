@@ -10,18 +10,19 @@ public static class MessagingExtensions
 {
     public static IHostApplicationBuilder AddKafka(this IHostApplicationBuilder builder)
     {
-        builder.Services.Configure<KafkaOptions>(builder.Configuration.GetSection(KafkaOptions.Section));
-        var enabled = builder.Configuration.GetValue(KafkaOptions.Section + ":Enabled", true);
+        var kafka = ReadOptions(builder.Configuration);
+        builder.Services.Configure<KafkaOptions>(o =>
+        {
+            builder.Configuration.GetSection(KafkaOptions.Section).Bind(o);
+            o.Provider = kafka.Provider;
+            o.EventHubsConnectionString = kafka.EventHubsConnectionString;
+        });
 
-        if (enabled)
+        if (kafka.Enabled)
         {
             builder.Services.TryAddSingleton<IEventPublisher, KafkaEventPublisher>();
-            var servers = builder.Configuration[KafkaOptions.Section + ":BootstrapServers"] ?? "localhost:9092";
-            builder.Services.AddHealthChecks().AddKafka(new Confluent.Kafka.ProducerConfig
-            {
-                BootstrapServers = servers,
-                MessageTimeoutMs = 3000
-            }, topic: "health-checks", name: "kafka", tags: ["ready"]);
+            builder.Services.AddHealthChecks().AddKafka(kafka.Apply(new Confluent.Kafka.ProducerConfig { MessageTimeoutMs = 3000 }),
+                topic: "health-checks", name: "kafka", tags: ["ready"]);
         }
         else
         {
@@ -29,6 +30,15 @@ public static class MessagingExtensions
         }
 
         return builder;
+    }
+
+    private static KafkaOptions ReadOptions(IConfiguration configuration)
+    {
+        var options = new KafkaOptions();
+        configuration.GetSection(KafkaOptions.Section).Bind(options);
+        options.Provider = (configuration["Messaging:Provider"] ?? MessagingProviders.Kafka).ToLowerInvariant();
+        options.EventHubsConnectionString = configuration["Messaging:EventHubs:ConnectionString"];
+        return options;
     }
 
     public static IHostApplicationBuilder AddKafkaConsumer(this IHostApplicationBuilder builder, string groupId, Action<ConsumerRegistration> configure)
