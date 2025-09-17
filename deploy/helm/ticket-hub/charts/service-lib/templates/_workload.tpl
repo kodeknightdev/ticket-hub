@@ -5,6 +5,31 @@ Renders everything one workload needs. Call with (dict "name" "seating" "svc" .V
 {{- $fullname := include "service-lib.fullname" . -}}
 {{- $svc := .svc -}}
 {{- $root := .root -}}
+{{- $keyVault := eq $root.Values.secrets.provider "keyvault" -}}
+{{- if and $keyVault $svc.secretEnv }}
+---
+# Key Vault secrets are mounted as files named after the setting they fill (ConnectionStrings__Default, DATABASE_URL, ...).
+apiVersion: secrets-store.csi.x-k8s.io/v1
+kind: SecretProviderClass
+metadata:
+  name: {{ $fullname }}
+  labels:
+    {{- include "service-lib.labels" . | nindent 4 }}
+spec:
+  provider: azure
+  parameters:
+    clientID: {{ $root.Values.workloadIdentity.clientId | quote }}
+    keyvaultName: {{ $root.Values.secrets.keyVault.name | quote }}
+    tenantId: {{ $root.Values.workloadIdentity.tenantId | quote }}
+    objects: |
+      array:
+        {{- range $envName, $secretKey := $svc.secretEnv }}
+        - |
+          objectName: {{ $secretKey }}
+          objectAlias: {{ $envName }}
+          objectType: secret
+        {{- end }}
+{{- end }}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -14,7 +39,11 @@ metadata:
     {{- include "service-lib.labels" . | nindent 4 }}
 data:
   {{- range $k, $v := $root.Values.global.env }}
-  {{ $k }}: {{ $v | quote }}
+  {{ $k }}: {{ tpl (toString $v) $root | quote }}
+  {{- end }}
+  SECRETS__PROVIDER: {{ ternary "keyvault" "environment" $keyVault | quote }}
+  {{- if $keyVault }}
+  SECRETS__PATH: {{ $root.Values.secrets.keyVault.mountPath | quote }}
   {{- end }}
   {{- range $k, $v := $svc.env }}
   {{ $k }}: {{ tpl (toString $v) $root | quote }}
@@ -71,7 +100,7 @@ spec:
           envFrom:
             - configMapRef:
                 name: {{ $fullname }}
-          {{- if $svc.secretEnv }}
+          {{- if and $svc.secretEnv (not $keyVault) }}
           env:
             {{- range $envName, $secretKey := $svc.secretEnv }}
             - name: {{ $envName }}
@@ -100,6 +129,19 @@ spec:
             allowPrivilegeEscalation: false
             capabilities:
               drop: ["ALL"]
+          {{- if and $keyVault $svc.secretEnv }}
+          volumeMounts:
+            - name: secrets-store
+              mountPath: {{ $root.Values.secrets.keyVault.mountPath }}
+              readOnly: true
+      volumes:
+        - name: secrets-store
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: {{ $fullname }}
+          {{- end }}
 ---
 apiVersion: v1
 kind: Service

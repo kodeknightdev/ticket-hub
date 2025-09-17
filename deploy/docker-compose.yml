@@ -47,7 +47,7 @@ services:
     depends_on:
       sqlserver:
         condition: service_healthy
-    volumes: [./sql/init.sql:/init/init.sql:ro]
+    volumes: [./helm/ticket-hub/files/init.sql:/init/init.sql:ro]
     entrypoint:
       - /bin/bash
       - -c
@@ -90,7 +90,7 @@ services:
     depends_on:
       kafka:
         condition: service_healthy
-    volumes: [./kafka/create-topics.sh:/create-topics.sh:ro]
+    volumes: [./helm/ticket-hub/files/create-topics.sh:/create-topics.sh:ro]
     entrypoint: ["/bin/bash", "/create-topics.sh"]
     environment:
       BOOTSTRAP: kafka:9092

@@ -7,6 +7,9 @@ global:
     OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector.observability:4317
     Kafka__BootstrapServers: ticket-hub-kafka-bootstrap.kafka:9092
     KAFKA_BOOTSTRAP_SERVERS: ticket-hub-kafka-bootstrap.kafka:9092
+    # kafka (any Kafka cluster, the default) or eventhubs (Azure Event Hubs' Kafka endpoint;
+    # also set MESSAGING__EVENTHUBS__CONNECTIONSTRING through secretEnv)
+    MESSAGING__PROVIDER: kafka
 
 serviceAccount:
   name: ticket-hub
@@ -18,7 +21,13 @@ workloadIdentity:
 
 secrets:
   name: ticket-hub-secrets
+  # kubernetes: values below become a Secret read through secretKeyRef.
+  # keyvault: each pod mounts Key Vault through the Secrets Store CSI driver (needs workload identity).
+  provider: kubernetes
   create: true
+  keyVault:
+    name: placeholder-kv
+    mountPath: /mnt/secrets-store
   # placeholders only; real values come from Key Vault in shared environments
   values:
     jwt-signing-key: change-me-jwt-signing-key-at-least-32-chars
@@ -35,6 +44,28 @@ secrets:
     notifier-db: Server=placeholder.database.windows.net;Database=TicketHub_Notifier;Authentication=Active Directory Workload Identity;Encrypt=True
     pricing-db-url: mssql+pyodbc://@placeholder.database.windows.net/TicketHub_Pricing?driver=ODBC+Driver+18+for+SQL+Server
     analytics-db-url: mssql+pyodbc://@placeholder.database.windows.net/TicketHub_Analytics?driver=ODBC+Driver+18+for+SQL+Server
+
+# SQL Server, Redis, Kafka and MailHog inside the cluster instead of Azure services (see values-local.yaml).
+localDependencies:
+  enabled: false
+  sqlServer:
+    image: mcr.microsoft.com/mssql/server:2022-CU17-ubuntu-22.04
+    storage: 8Gi
+    resources:
+      requests: { cpu: 500m, memory: 2Gi }
+      limits: { cpu: "2", memory: 3Gi }
+  redis:
+    image: redis:7.4.2-alpine
+    resources:
+      requests: { cpu: 50m, memory: 64Mi }
+      limits: { cpu: 250m, memory: 256Mi }
+  kafka:
+    image: apache/kafka:3.9.0
+    resources:
+      requests: { cpu: 250m, memory: 768Mi }
+      limits: { cpu: "1", memory: 1536Mi }
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
 
 ingress:
   enabled: true
