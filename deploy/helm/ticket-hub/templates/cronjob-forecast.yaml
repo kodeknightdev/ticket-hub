@@ -36,6 +36,7 @@ spec:
               envFrom:
                 - configMapRef:
                     name: {{ printf "%s-analytics" .Release.Name }}
+              {{- if eq .Values.secrets.provider "kubernetes" }}
               env:
                 {{- range $envName, $secretKey := $svc.secretEnv }}
                 - name: {{ $envName }}
@@ -44,6 +45,21 @@ spec:
                       name: {{ $.Values.secrets.name }}
                       key: {{ $secretKey }}
                 {{- end }}
+              {{- else }}
+              volumeMounts:
+                - name: secrets-store
+                  mountPath: {{ .Values.secrets.keyVault.mountPath }}
+                  readOnly: true
+              {{- end }}
               resources:
                 {{- toYaml .Values.forecastCronJob.resources | nindent 16 }}
+          {{- if eq .Values.secrets.provider "keyvault" }}
+          volumes:
+            - name: secrets-store
+              csi:
+                driver: secrets-store.csi.k8s.io
+                readOnly: true
+                volumeAttributes:
+                  secretProviderClass: {{ printf "%s-analytics" .Release.Name }}
+          {{- end }}
 {{- end }}

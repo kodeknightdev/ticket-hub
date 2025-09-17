@@ -1,0 +1,79 @@
+# Any Kubernetes cluster with no Azure at all (kind, Docker Desktop, minikube):
+#   docker compose build                       # images are tagged tickethub/<service>:local
+#   helm upgrade --install tr deploy/helm/ticket-hub -f deploy/helm/ticket-hub/values-local.yaml
+# SQL Server, Redis, Kafka and MailHog run in the cluster, secrets are a plain Kubernetes Secret and
+# workload identity is off. Every value here is local demo data, the same placeholders as .env.example.
+
+global:
+  imageRegistry: tickethub
+  imageTag: local
+  imagePullPolicy: IfNotPresent
+  env:
+    OTEL_EXPORTER_OTLP_ENDPOINT: ""
+    Kafka__BootstrapServers: "{{ .Release.Name }}-kafka:9092"
+    KAFKA_BOOTSTRAP_SERVERS: "{{ .Release.Name }}-kafka:9092"
+    MESSAGING__PROVIDER: kafka
+
+workloadIdentity:
+  enabled: false
+
+secrets:
+  provider: kubernetes
+  create: true
+  values:
+    jwt-signing-key: local-dev-jwt-signing-key-change-me-0123456789
+    ticket-signing-key: local-dev-ticket-signing-key-change-me-0123456789
+    mock-webhook-secret: mock_whsec_local_dev
+    stripe-secret-key: sk_test_replace_me
+    stripe-publishable-key: pk_test_replace_me
+    stripe-webhook-secret: whsec_replace_me
+    seed-demo-password: Demo@12345
+    redis-connection: "{{ .Release.Name }}-redis:6379"
+    mssql-sa-password: LocalDev_Sa_Passw0rd!
+    identity-db-password: LocalDev_Identity_Pw1!
+    events-db-password: LocalDev_Events_Pw1!
+    seating-db-password: LocalDev_Seating_Pw1!
+    orders-db-password: LocalDev_Orders_Pw1!
+    notifier-db-password: LocalDev_Notifier_Pw1!
+    pricing-db-password: LocalDev_Pricing_Pw1!
+    analytics-db-password: LocalDev_Analytics_Pw1!
+    identity-db: "Server={{ .Release.Name }}-sqlserver,1433;Database=TicketHub_Identity;User Id=identity_svc;Password=LocalDev_Identity_Pw1!;TrustServerCertificate=True"
+    events-db: "Server={{ .Release.Name }}-sqlserver,1433;Database=TicketHub_Events;User Id=events_svc;Password=LocalDev_Events_Pw1!;TrustServerCertificate=True"
+    seating-db: "Server={{ .Release.Name }}-sqlserver,1433;Database=TicketHub_Seating;User Id=seating_svc;Password=LocalDev_Seating_Pw1!;TrustServerCertificate=True"
+    orders-db: "Server={{ .Release.Name }}-sqlserver,1433;Database=TicketHub_Orders;User Id=orders_svc;Password=LocalDev_Orders_Pw1!;TrustServerCertificate=True"
+    notifier-db: "Server={{ .Release.Name }}-sqlserver,1433;Database=TicketHub_Notifier;User Id=notifier_svc;Password=LocalDev_Notifier_Pw1!;TrustServerCertificate=True"
+    pricing-db-url: "mssql+pyodbc://pricing_svc:LocalDev_Pricing_Pw1!@{{ .Release.Name }}-sqlserver:1433/TicketHub_Pricing?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes"
+    analytics-db-url: "mssql+pyodbc://analytics_svc:LocalDev_Analytics_Pw1!@{{ .Release.Name }}-sqlserver:1433/TicketHub_Analytics?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes"
+
+localDependencies:
+  enabled: true
+
+ingress:
+  enabled: true
+  className: nginx
+  appHost: app.tickethub.local
+  dashboardHost: dashboard.tickethub.local
+  tls: false
+
+forecastCronJob:
+  enabled: false
+
+# Development turns on migrations and the demo seeders; one replica of everything, no PDBs or HPAs.
+services:
+  identity:
+    replicas: 1
+    pdb: null
+    env: { ASPNETCORE_ENVIRONMENT: Development }
+    secretEnv: { SEED_DEMO_PASSWORD: seed-demo-password }
+  events: { replicas: 1, pdb: null, env: { ASPNETCORE_ENVIRONMENT: Development } }
+  seating: { pdb: null, hpa: { enabled: false }, replicas: 1, env: { ASPNETCORE_ENVIRONMENT: Development } }
+  orders: { pdb: null, hpa: { enabled: false }, replicas: 1, env: { ASPNETCORE_ENVIRONMENT: Development } }
+  notifier:
+    replicas: 1
+    env: { ASPNETCORE_ENVIRONMENT: Development, Smtp__Host: "{{ .Release.Name }}-mailhog", Smtp__Port: "1025" }
+  pricing: { replicas: 1, pdb: null }
+  analytics: { replicas: 1, pdb: null }
+  ticketing-bff: { pdb: null, hpa: { enabled: false }, replicas: 1, env: { ASPNETCORE_ENVIRONMENT: Development } }
+  dashboard-bff: { replicas: 1, pdb: null, env: { ASPNETCORE_ENVIRONMENT: Development } }
+  ticketing-frontend: { replicas: 1 }
+  dashboard-frontend: { replicas: 1 }

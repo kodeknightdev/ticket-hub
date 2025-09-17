@@ -3,8 +3,10 @@ global:
   imagePullPolicy: Always
 
 secrets:
-  # created from Key Vault by the platform's secrets operator
-  create: false
+  # every secret is read from Key Vault through the CSI driver, using the workload identity
+  provider: keyvault
+  keyVault:
+    name: th-prod-uks-kv
 
 ingress:
   appHost: app.tickethub.example.com

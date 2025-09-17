@@ -1,0 +1,315 @@
+{{- if .Values.localDependencies.enabled }}
+{{- $deps := .Values.localDependencies }}
+{{- $rel := .Release.Name }}
+# In-cluster stand-ins for the Azure services, for clusters with no Azure at all (kind, Docker Desktop).
+# Same images and bootstrap scripts as docker-compose; the scripts live in this chart's files/ folder.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $rel }}-bootstrap
+  labels:
+    app.kubernetes.io/part-of: ticket-hub
+data:
+  init.sql: |-
+{{ .Files.Get "files/init.sql" | indent 4 }}
+  create-topics.sh: |-
+{{ .Files.Get "files/create-topics.sh" | indent 4 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $rel }}-sqlserver
+  labels:
+    app.kubernetes.io/name: sqlserver
+    app.kubernetes.io/part-of: ticket-hub
+spec:
+  selector:
+    app.kubernetes.io/name: sqlserver
+    app.kubernetes.io/instance: {{ $rel }}
+  ports:
+    - name: tds
+      port: 1433
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $rel }}-sqlserver
+  labels:
+    app.kubernetes.io/name: sqlserver
+    app.kubernetes.io/part-of: ticket-hub
+spec:
+  serviceName: {{ $rel }}-sqlserver
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: sqlserver
+      app.kubernetes.io/instance: {{ $rel }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: sqlserver
+        app.kubernetes.io/instance: {{ $rel }}
+    spec:
+      securityContext:
+        fsGroup: 10001
+      containers:
+        - name: sqlserver
+          image: {{ $deps.sqlServer.image }}
+          env:
+            - name: ACCEPT_EULA
+              value: "Y"
+            - name: MSSQL_PID
+              value: Developer
+            - name: MSSQL_SA_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: {{ .Values.secrets.name }}, key: mssql-sa-password }
+          ports:
+            - name: tds
+              containerPort: 1433
+          readinessProbe:
+            exec:
+              command: ["/bin/bash", "-c", "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P \"$MSSQL_SA_PASSWORD\" -Q 'SELECT 1' -b -o /dev/null"]
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          resources:
+            {{- toYaml $deps.sqlServer.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/opt/mssql
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ $deps.sqlServer.storage }}
+---
+# Revision in the name: Jobs are immutable, so each upgrade gets a fresh one. init.sql is idempotent.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ $rel }}-db-init-{{ .Release.Revision }}
+  labels:
+    app.kubernetes.io/part-of: ticket-hub
+spec:
+  backoffLimit: 20
+  ttlSecondsAfterFinished: 3600
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: db-init
+          image: {{ $deps.sqlServer.image }}
+          command:
+            - /bin/bash
+            - -c
+            - >-
+              until /opt/mssql-tools18/bin/sqlcmd -C -S {{ $rel }}-sqlserver -U sa -P "$MSSQL_SA_PASSWORD" -Q 'SELECT 1' -b -o /dev/null; do sleep 5; done;
+              /opt/mssql-tools18/bin/sqlcmd -C -S {{ $rel }}-sqlserver -U sa -P "$MSSQL_SA_PASSWORD" -b -i /bootstrap/init.sql
+              -v IDENTITY_DB_PASSWORD="$IDENTITY_DB_PASSWORD" EVENTS_DB_PASSWORD="$EVENTS_DB_PASSWORD"
+              SEATING_DB_PASSWORD="$SEATING_DB_PASSWORD" ORDERS_DB_PASSWORD="$ORDERS_DB_PASSWORD"
+              NOTIFIER_DB_PASSWORD="$NOTIFIER_DB_PASSWORD" PRICING_DB_PASSWORD="$PRICING_DB_PASSWORD"
+              ANALYTICS_DB_PASSWORD="$ANALYTICS_DB_PASSWORD"
+          env:
+            {{- range $envName, $key := dict "MSSQL_SA_PASSWORD" "mssql-sa-password" "IDENTITY_DB_PASSWORD" "identity-db-password" "EVENTS_DB_PASSWORD" "events-db-password" "SEATING_DB_PASSWORD" "seating-db-password" "ORDERS_DB_PASSWORD" "orders-db-password" "NOTIFIER_DB_PASSWORD" "notifier-db-password" "PRICING_DB_PASSWORD" "pricing-db-password" "ANALYTICS_DB_PASSWORD" "analytics-db-password" }}
+            - name: {{ $envName }}
+              valueFrom:
+                secretKeyRef: { name: {{ $.Values.secrets.name }}, key: {{ $key }} }
+            {{- end }}
+          volumeMounts:
+            - name: bootstrap
+              mountPath: /bootstrap
+      volumes:
+        - name: bootstrap
+          configMap:
+            name: {{ $rel }}-bootstrap
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $rel }}-redis
+  labels:
+    app.kubernetes.io/name: redis
+    app.kubernetes.io/part-of: ticket-hub
+spec:
+  selector:
+    app.kubernetes.io/name: redis
+    app.kubernetes.io/instance: {{ $rel }}
+  ports:
+    - name: redis
+      port: 6379
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $rel }}-redis
+  labels:
+    app.kubernetes.io/name: redis
+    app.kubernetes.io/part-of: ticket-hub
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: redis
+      app.kubernetes.io/instance: {{ $rel }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: redis
+        app.kubernetes.io/instance: {{ $rel }}
+    spec:
+      containers:
+        - name: redis
+          image: {{ $deps.redis.image }}
+          # holds rely on keys expiring on time, never on eviction
+          args: ["redis-server", "--maxmemory-policy", "noeviction"]
+          ports:
+            - name: redis
+              containerPort: 6379
+          readinessProbe:
+            exec: { command: ["redis-cli", "ping"] }
+            periodSeconds: 5
+          resources:
+            {{- toYaml $deps.redis.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $rel }}-kafka
+  labels:
+    app.kubernetes.io/name: kafka
+    app.kubernetes.io/part-of: ticket-hub
+spec:
+  selector:
+    app.kubernetes.io/name: kafka
+    app.kubernetes.io/instance: {{ $rel }}
+  ports:
+    - name: kafka
+      port: 9092
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $rel }}-kafka
+  labels:
+    app.kubernetes.io/name: kafka
+    app.kubernetes.io/part-of: ticket-hub
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kafka
+      app.kubernetes.io/instance: {{ $rel }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kafka
+        app.kubernetes.io/instance: {{ $rel }}
+    spec:
+      containers:
+        - name: kafka
+          image: {{ $deps.kafka.image }}
+          env:
+            - { name: KAFKA_NODE_ID, value: "1" }
+            - { name: KAFKA_PROCESS_ROLES, value: "broker,controller" }
+            - { name: KAFKA_LISTENERS, value: "PLAINTEXT://:9092,CONTROLLER://:9093" }
+            - { name: KAFKA_ADVERTISED_LISTENERS, value: "PLAINTEXT://{{ $rel }}-kafka:9092" }
+            - { name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP, value: "PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT" }
+            - { name: KAFKA_CONTROLLER_LISTENER_NAMES, value: "CONTROLLER" }
+            - { name: KAFKA_CONTROLLER_QUORUM_VOTERS, value: "1@localhost:9093" }
+            - { name: KAFKA_INTER_BROKER_LISTENER_NAME, value: "PLAINTEXT" }
+            - { name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR, value: "1" }
+            - { name: KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR, value: "1" }
+            - { name: KAFKA_TRANSACTION_STATE_LOG_MIN_ISR, value: "1" }
+            - { name: KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS, value: "0" }
+            - { name: KAFKA_NUM_PARTITIONS, value: "6" }
+          ports:
+            - name: kafka
+              containerPort: 9092
+          readinessProbe:
+            exec:
+              command: ["/bin/bash", "-c", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null 2>&1"]
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          resources:
+            {{- toYaml $deps.kafka.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/kafka/data
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ $rel }}-kafka-init-{{ .Release.Revision }}
+  labels:
+    app.kubernetes.io/part-of: ticket-hub
+spec:
+  backoffLimit: 20
+  ttlSecondsAfterFinished: 3600
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: kafka-init
+          image: {{ $deps.kafka.image }}
+          command: ["/bin/bash", "/bootstrap/create-topics.sh"]
+          env:
+            - { name: BOOTSTRAP, value: "{{ $rel }}-kafka:9092" }
+          volumeMounts:
+            - name: bootstrap
+              mountPath: /bootstrap
+      volumes:
+        - name: bootstrap
+          configMap:
+            name: {{ $rel }}-bootstrap
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $rel }}-mailhog
+  labels:
+    app.kubernetes.io/name: mailhog
+    app.kubernetes.io/part-of: ticket-hub
+spec:
+  selector:
+    app.kubernetes.io/name: mailhog
+    app.kubernetes.io/instance: {{ $rel }}
+  ports:
+    - { name: smtp, port: 1025 }
+    - { name: http, port: 8025 }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $rel }}-mailhog
+  labels:
+    app.kubernetes.io/name: mailhog
+    app.kubernetes.io/part-of: ticket-hub
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mailhog
+      app.kubernetes.io/instance: {{ $rel }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: mailhog
+        app.kubernetes.io/instance: {{ $rel }}
+    spec:
+      containers:
+        - name: mailhog
+          image: {{ $deps.mailhog.image }}
+          ports:
+            - { name: smtp, containerPort: 1025 }
+            - { name: http, containerPort: 8025 }
+          resources:
+            requests: { cpu: 10m, memory: 32Mi }
+            limits: { cpu: 100m, memory: 128Mi }
+{{- end }}
