@@ -21,6 +21,14 @@ pr:
   branches:
     include: [main]
 
+parameters:
+  # Terraform is optional. Leave this off when the Azure resources already exist (or are managed some
+  # other way) and are passed in through the ticket-hub-common variable group.
+  - name: provisionInfra
+    displayName: Plan Azure infrastructure with Terraform
+    type: boolean
+    default: false
+
 variables:
   - group: ticket-hub-common
   - name: isMain
@@ -119,23 +127,27 @@ stages:
               dockerfile: $(dockerfile)
               context: $(context)
 
-  - stage: InfraPlan
-    displayName: Infra plan
-    dependsOn: BuildTest
-    condition: and(succeeded(), eq(variables.isMain, true))
-    jobs:
-      - job: plan_dev
-        steps:
-          - template: deploy/pipelines/templates/terraform-plan.yml
-            parameters: { env: dev }
-      - job: plan_prod
-        steps:
-          - template: deploy/pipelines/templates/terraform-plan.yml
-            parameters: { env: prod }
+  - ${{ if eq(parameters.provisionInfra, true) }}:
+    - stage: InfraPlan
+      displayName: Infra plan
+      dependsOn: BuildTest
+      condition: and(succeeded(), eq(variables.isMain, true))
+      jobs:
+        - job: plan_dev
+          steps:
+            - template: deploy/pipelines/templates/terraform-plan.yml
+              parameters: { env: dev }
+        - job: plan_prod
+          steps:
+            - template: deploy/pipelines/templates/terraform-plan.yml
+              parameters: { env: prod }
 
   - stage: DeployDev
     displayName: Deploy Dev
-    dependsOn: [Images, InfraPlan]
+    dependsOn:
+      - Images
+      - ${{ if eq(parameters.provisionInfra, true) }}:
+        - InfraPlan
     condition: and(succeeded(), eq(variables.isMain, true))
     jobs:
       - deployment: helm_dev
