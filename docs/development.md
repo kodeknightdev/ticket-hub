@@ -30,8 +30,8 @@ ticket-hub/
 ├── deploy/
 │   ├── docker-compose.yml               full local stack
 │   ├── docker-compose.override.yml      publishes service ports for debugging
-│   ├── sql/ kafka/                      database/login and topic bootstrap scripts
-│   ├── helm/ticket-hub/                umbrella chart + service-lib library chart
+│   ├── helm/ticket-hub/                umbrella chart + service-lib library chart; files/ holds the
+│   │                                    SQL and Kafka bootstrap scripts shared with compose
 │   └── pipelines/templates/             Azure DevOps step templates
 ├── infra/terraform/                     modules/ + envs/dev, envs/prod
 ├── compose.yaml                         includes deploy/ so `docker compose up` works from the root
@@ -127,8 +127,8 @@ Testcontainers tests use `[DockerFact]`, which skips them when `docker info` fai
    a `DbContext` that calls `model.AddOutbox().AddInbox()` and `ForSqliteTests(Database)`, then
    `MapDefaultEndpoints()` and `MigrateAndSeedAsync<TContext>()`.
 3. Add payload records and topic names to `TicketHub.Contracts`, and the topics plus
-   `<name>.retry`/`<name>.dlq` to `deploy/kafka/create-topics.sh`.
-4. Add a database and login to `deploy/sql/init.sql` and a password to `.env.example`.
+   `<name>.retry`/`<name>.dlq` to `deploy/helm/ticket-hub/files/create-topics.sh`.
+4. Add a database and login to `deploy/helm/ticket-hub/files/init.sql` and a password to `.env.example`.
 5. Copy a Dockerfile, add the service to `deploy/docker-compose.yml`, to `services:` in the Helm
    `values.yaml`, to the image matrix and change detection in the pipeline, and to the smoke test.
 6. `dotnet sln add`, add a test project under `tests/`, and a `README.md` in the service folder.

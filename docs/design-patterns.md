@@ -54,7 +54,7 @@ through the database instead of through contracts.
 `TicketHub_Analytics`) and runs its own migrations. Seating keeps hot state in Redis and only sold
 seats in SQL. Analytics has its own database with columnstore fact tables.
 
-- [`deploy/sql/init.sql`](../deploy/sql/init.sql) – one database and one `db_owner`-on-its-own-DB login per service
+- [`deploy/helm/ticket-hub/files/init.sql`](../deploy/helm/ticket-hub/files/init.sql) – one database and one `db_owner`-on-its-own-DB login per service
 - EF Core contexts, e.g. [`src/services/orders/TicketHub.Orders/Data/OrdersDbContext.cs`](../src/services/orders/TicketHub.Orders/Data/OrdersDbContext.cs)
 - Alembic migrations, e.g. [`src/services/analytics/alembic/versions/0001_initial.py`](../src/services/analytics/alembic/versions/0001_initial.py)
 - [`infra/terraform/modules/mssql/main.tf`](../infra/terraform/modules/mssql/main.tf) – one Azure SQL database per service
@@ -249,4 +249,6 @@ per event is kept. Replicas also compete for outbox rows (leases) and expiring h
   Kafka headers, and is stored in the outbox. [`KafkaTracing.cs`](../shared/TicketHub.BuildingBlocks/Messaging/KafkaTracing.cs), [`ServiceDefaults.cs`](../shared/TicketHub.BuildingBlocks/Hosting/ServiceDefaults.cs), [`telemetry.py`](../src/services/analytics/app/telemetry.py)
 - **Health check API.** `/alive` and `/health` everywhere, used by compose healthchecks, Kubernetes probes and the pipeline smoke test. [`ServiceDefaults.cs`](../shared/TicketHub.BuildingBlocks/Hosting/ServiceDefaults.cs), [`smoke-test.yml`](../deploy/pipelines/templates/smoke-test.yml)
 - **Externalized configuration.** All settings come from environment variables: `.env` locally,
-  ConfigMaps/Secrets in Helm, Key Vault in Azure. [`deploy/docker-compose.yml`](../deploy/docker-compose.yml), [`deploy/helm/ticket-hub/values.yaml`](../deploy/helm/ticket-hub/values.yaml)
+  ConfigMaps/Secrets in Helm, Key Vault (CSI-mounted files) in Azure. Provider switches pick the
+  Azure-only integrations without code changes: `MESSAGING__PROVIDER` ([`KafkaOptions.cs`](../shared/TicketHub.BuildingBlocks/Messaging/KafkaOptions.cs)),
+  `SECRETS__PROVIDER` ([`ServiceDefaults.cs`](../shared/TicketHub.BuildingBlocks/Hosting/ServiceDefaults.cs), [`config.py`](../src/services/analytics/app/config.py)). [`deploy/docker-compose.yml`](../deploy/docker-compose.yml), [`deploy/helm/ticket-hub/values.yaml`](../deploy/helm/ticket-hub/values.yaml)

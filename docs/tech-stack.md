@@ -90,6 +90,8 @@ Every technology in the project, the exact version pinned in the repository (`gl
 | Stripe CLI | v1.25.0 (optional) | forwarding test-mode webhooks to orders in compose |
 | Helm | 3.17.3 | the `deploy/helm/ticket-hub` umbrella chart and its service library chart |
 | Kubernetes | AKS (version chosen by Azure default channel) | running the chart with HPAs, PDBs and workload identity |
-| Terraform | 1.11.4 (`required_version >= 1.11.0, < 1.14.0`) | `infra/terraform` modules and the dev/prod environments |
+| Terraform (optional) | 1.11.4 (`required_version >= 1.11.0, < 1.14.0`) | `infra/terraform` modules and the dev/prod environments |
 | azurerm provider | 4.37.0 (locked) | AKS, ACR, Azure SQL, Redis, Key Vault and identities in the Terraform modules |
-| Azure DevOps Pipelines | YAML, `ubuntu-24.04` agents | `azure-pipelines.yml`: build, scan, images, infra plan, deploys and smoke test |
+| Secrets Store CSI driver, Azure provider | AKS add-on (`key_vault_secrets_provider`) | mounting Key Vault secrets into pods when `secrets.provider=keyvault` |
+| Azure Event Hubs (Kafka endpoint) | optional, `MESSAGING__PROVIDER=eventhubs` | the managed Kafka-compatible broker option on Azure |
+| Azure DevOps Pipelines | YAML, `ubuntu-24.04` agents | `azure-pipelines.yml`: build, scan, images, optional infra plan, deploys and smoke test |

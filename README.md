@@ -59,6 +59,9 @@ On macOS, port 5000 is taken by AirPlay Receiver; set `TICKETING_BFF_PORT=5050` 
 | MailHog (all outgoing email) | http://localhost:8025 |
 | Jaeger (traces) | http://localhost:16686 |
 
+To run on a Kubernetes cluster instead (kind, Docker Desktop), install the Helm chart in
+`deploy/helm/ticket-hub` with `values-local.yaml`: no Azure and no Terraform needed.
+
 Payments run against the mock provider until you put real Stripe **test** keys (`sk_test_…`) in `.env`;
 `docker compose --profile stripe up stripe-cli` then forwards Stripe webhooks to the orders service.
 
