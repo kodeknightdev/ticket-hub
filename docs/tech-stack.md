@@ -90,6 +90,8 @@ listed here hasn't been evaluated.
 | Stripe CLI | v1.25.0 (optional) | forwards test-mode webhooks to orders |
 | Helm | 3.17.3 | umbrella chart + library chart |
 | Kubernetes | AKS (version chosen by Azure default channel) | HPA, PDB, workload identity |
-| Terraform | 1.11.4 (`required_version >= 1.11.0, < 1.14.0`) | Azure infrastructure as code |
+| Terraform (optional) | 1.11.4 (`required_version >= 1.11.0, < 1.14.0`) | one way to create the Azure resources; the app and chart don't depend on it |
 | azurerm provider | 4.37.0 (locked) | AKS, ACR, Azure SQL, Redis, Key Vault, identities |
+| Secrets Store CSI driver, Azure provider | AKS add-on (`key_vault_secrets_provider`) | mounts Key Vault secrets as files when `secrets.provider=keyvault` |
+| Azure Event Hubs (Kafka endpoint) | optional, `MESSAGING__PROVIDER=eventhubs` | managed alternative to running Kafka on Azure; same Confluent clients over SASL_SSL |
 | Azure DevOps Pipelines | YAML, `ubuntu-24.04` agents | build, scan, images, plan, deploy with approvals |

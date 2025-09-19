@@ -106,7 +106,7 @@ Shared .NET code lives in [`shared/TicketHub.BuildingBlocks`](../shared/TicketHu
 ## Data ownership
 
 Every service has its own database and its own SQL login; there are no cross-database queries and no
-shared tables. Locally one SQL Server container hosts all of them (see [`deploy/sql/init.sql`](../deploy/sql/init.sql));
+shared tables. Locally one SQL Server container hosts all of them (see [`deploy/helm/ticket-hub/files/init.sql`](../deploy/helm/ticket-hub/files/init.sql));
 in Azure they are separate databases on one logical server, with analytics on a larger SKU.
 
 | Data | Owner | Everyone else gets it via |
@@ -147,7 +147,7 @@ event id so everything about one event lands on the same partition and stays ord
 | `pricing.price-updated` | pricing | events, analytics, SignalR broadcast | old/new price, sell-through, reason |
 
 Each consumer group also has `{group}.retry` and `{group}.dlq` topics (`events`, `seating`,
-`seating-broadcast`, `orders`, `notifier`, `pricing`, `analytics`). [`deploy/kafka/create-topics.sh`](../deploy/kafka/create-topics.sh)
+`seating-broadcast`, `orders`, `notifier`, `pricing`, `analytics`). [`deploy/helm/ticket-hub/files/create-topics.sh`](../deploy/helm/ticket-hub/files/create-topics.sh)
 creates all of them with six partitions.
 
 Example `orders.order-paid` message:
@@ -181,4 +181,7 @@ Example `orders.order-paid` message:
 - **Resilience**: every outbound `HttpClient` and gRPC client uses the standard resilience handler
   (rate limiter/bulkhead, total timeout, retry, circuit breaker, attempt timeout).
 - **Configuration**: everything comes from environment variables (`.env` locally, ConfigMaps and
-  Secrets in Kubernetes); nothing environment specific is baked into images.
+  Secrets in Kubernetes); nothing environment specific is baked into images. Azure-only integrations
+  are switched on by configuration (`MESSAGING__PROVIDER=eventhubs`, `SECRETS__PROVIDER=keyvault`) and
+  the local options are the defaults, so the same images run on a laptop, any Kubernetes cluster, or
+  Azure, with or without Terraform.
