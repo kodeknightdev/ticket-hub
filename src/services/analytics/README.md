@@ -3,7 +3,7 @@
 The read side. Consumes every business event into a star schema (dimensions, facts with clustered
 columnstore indexes on SQL Server, daily rollups), refreshes rollups every five minutes, retrains
 forecasts hourly (Holt-Winters with a similar-events fallback), runs a backtest and evaluates alert
-rules. Details: [docs/analytics-and-forecasting.md](../../../docs/analytics-and-forecasting.md).
+rules. Fact tables get clustered columnstore indexes on SQL Server; tests run the same models on SQLite.
 
 ## Endpoints
 
