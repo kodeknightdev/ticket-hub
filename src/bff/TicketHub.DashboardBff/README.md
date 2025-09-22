@@ -3,7 +3,7 @@
 Backend-for-Frontend for `dashboard-frontend`. Only Owner, Organizer and Admin can sign in.
 Injects each organizer's own event ids into every analytics query, caches responses in HybridCache
 (memory + Redis) for 30–120 s, and streams CSV exports (throttled per user).
-See [docs/bff.md](../../../docs/bff.md).
+Cache keys include the caller's scope, so one organizer never gets another organizer's cached numbers.
 
 ## Endpoints
 

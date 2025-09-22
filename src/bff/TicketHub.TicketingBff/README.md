@@ -2,7 +2,8 @@
 
 Backend-for-Frontend for `ticketing-frontend`. Owns the `__Host-tickethub-app` cookie session,
 keeps tokens in Redis, proxies CRUD and the SignalR hub with YARP, and composes page-shaped responses.
-See [docs/bff.md](../../../docs/bff.md).
+The browser only ever holds an opaque `HttpOnly`, `Secure`, `SameSite=Strict` cookie; access and refresh
+tokens stay server-side and are refreshed silently before downstream calls.
 
 ## Endpoints
 
