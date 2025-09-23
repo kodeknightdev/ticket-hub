@@ -4,8 +4,8 @@ using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using TicketHub.Contracts;
-using TicketHub.TicketingBff.Clients;
 using TicketHub.TestSupport;
+using TicketHub.TicketingBff.Clients;
 
 namespace TicketHub.Bff.Tests;
 
