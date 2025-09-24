@@ -73,7 +73,7 @@ public sealed class CancellationSagaOrchestrator(OrdersDbContext db, IPaymentPro
         {
             try
             {
-                await AdvanceAsync(saga, step, ct);
+                await AdvanceAsync(step, ct);
                 processed++;
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
@@ -97,7 +97,7 @@ public sealed class CancellationSagaOrchestrator(OrdersDbContext db, IPaymentPro
         return processed;
     }
 
-    private async Task AdvanceAsync(CancellationSaga saga, CancellationSagaStep step, CancellationToken ct)
+    private async Task AdvanceAsync(CancellationSagaStep step, CancellationToken ct)
     {
         var order = await db.Orders.Include(o => o.Tickets).FirstAsync(o => o.Id == step.OrderId, ct);
 
