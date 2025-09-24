@@ -29,7 +29,7 @@ public static class DemoSeeder
         new("echo-valley", DemoAccounts.Organizer, "Echo Valley Unplugged", "Echo Valley", "Concert", 3, 75, 20, "https://picsum.photos/seed/echo/800/400")
     ];
 
-    public static async Task SeedAsync(EventsDbContext db, IServiceProvider services)
+    public static async Task SeedAsync(EventsDbContext db, IServiceProvider _)
     {
         if (await db.Events.AnyAsync()) return;
 

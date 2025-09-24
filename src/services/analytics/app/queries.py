@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from . import forecasting
 from .models import (
     Alert, DailyEventSales, DimEvent, DimVenueSection, FactCheckin, FactHold, FactOrder, FactPriceChange,
-    FactRefund, FactTicketSale, ForecastBacktest, ForecastDaily, ForecastPlatformRevenue, ForecastSummary,
+    FactTicketSale, ForecastBacktest, ForecastDaily, ForecastPlatformRevenue, ForecastSummary,
 )
 from .timeutil import now, today
 
